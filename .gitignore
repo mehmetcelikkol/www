@@ -1,0 +1,20 @@
+# Medya klasörlerini hariç tut
+media/
+Media/
+img/
+Img/
+image/
+Image/
+
+# Video ve büyük medya dosyaları
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.zip
+*.rar
+*.iso
+
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
