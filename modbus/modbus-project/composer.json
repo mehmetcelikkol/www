@@ -1,0 +1,11 @@
+{
+    "name": "mehmet/modbus-project",
+    "autoload": {
+        "psr-4": {
+            "Mehmet\\ModbusProject\\": "src/"
+        }
+    },
+    "require": {
+        "aldas/modbus-tcp-client": "^2.4"
+    }
+}

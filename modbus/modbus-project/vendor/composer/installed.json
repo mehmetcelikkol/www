@@ -1,0 +1,57 @@
+{
+    "packages": [
+        {
+            "name": "aldas/modbus-tcp-client",
+            "version": "2.4.0",
+            "version_normalized": "2.4.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/aldas/modbus-tcp-client.git",
+                "reference": "73eba8bdf0d4b37eda70871dc34b0c6f0659728f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/aldas/modbus-tcp-client/zipball/73eba8bdf0d4b37eda70871dc34b0c6f0659728f",
+                "reference": "73eba8bdf0d4b37eda70871dc34b0c6f0659728f",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "php": "^7.0 || ^8.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.0",
+                "psr/log": "^1.0",
+                "react/child-process": "^0.6",
+                "react/datagram": "^1.5",
+                "react/socket": "^1.6"
+            },
+            "suggest": {
+                "psr/log": "Required for using the Log middleware with BinaryStreamConnection"
+            },
+            "time": "2021-12-25T20:14:50+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "ModbusTcpClient\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "Modbus TCP protocol client library",
+            "keywords": [
+                "modbus"
+            ],
+            "support": {
+                "issues": "https://github.com/aldas/modbus-tcp-client/issues",
+                "source": "https://github.com/aldas/modbus-tcp-client/tree/2.4.0"
+            },
+            "install-path": "../aldas/modbus-tcp-client"
+        }
+    ],
+    "dev": true,
+    "dev-package-names": []
+}

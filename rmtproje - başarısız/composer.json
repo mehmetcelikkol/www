@@ -1,0 +1,10 @@
+{
+    "name": "rmt/proje",
+    "description": "RMT Proje Web Sitesi",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

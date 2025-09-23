@@ -1,0 +1,14 @@
+RewriteEngine On
+RewriteBase /
+
+# Ana yönlendirme
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?sayfa=$1 [QSA,L]
+
+# Assets için cache
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|jpg|png|gif)$">
+        Header set Cache-Control "max-age=31536000, public"
+    </FilesMatch>
+</IfModule>
