@@ -11,7 +11,7 @@ set /p usermsg=Commit mesaji giriniz:
 :: Tarih + saat ekle
 for /f "tokens=1-3 delims=/ " %%a in ("%date%") do (
     for /f "tokens=1-2 delims=: " %%x in ("%time%") do (
-        set msg=%usermsg% (%%a-%%b-%%c_%%x%%y)
+        set msg=%usermsg% (%%a-%%b-%%c_%%x:%%y)
     )
 )
 
