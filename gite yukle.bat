@@ -2,7 +2,7 @@
 cd /d C:\wamp64\www
 
 echo -------------------------------------
-echo  Git otomatik commit & push basliyor
+echo  Git otomatik commit ve push basliyor
 echo -------------------------------------
 
 :: Kullanıcıdan commit mesajı al
@@ -15,7 +15,6 @@ for /f "tokens=1-3 delims=/ " %%a in ("%date%") do (
     )
 )
 
-:: Git komutları (PATH üzerinden)
 git add .
 git commit -m "%msg%"
 git push origin master
