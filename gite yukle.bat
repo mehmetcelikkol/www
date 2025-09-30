@@ -15,10 +15,10 @@ for /f "tokens=1-3 delims=/ " %%a in ("%date%") do (
     )
 )
 
-:: Git komutlarını tam yol ile çalıştır
-"C:\Program Files\Git\cmd\git.exe" add .
-"C:\Program Files\Git\cmd\git.exe" commit -m "%msg%"
-"C:\Program Files\Git\cmd\git.exe" push origin master
+:: Git komutları (PATH üzerinden)
+git add .
+git commit -m "%msg%"
+git push origin master
 
 echo -------------------------------------
 echo  Commit ve push tamamlandi!
