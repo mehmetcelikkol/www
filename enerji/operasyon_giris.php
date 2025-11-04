@@ -215,21 +215,68 @@ if ($q = $db->query("SELECT * FROM enerji_operasyonlar WHERE bitis IS NOT NULL O
           <div class="muted">Kayıt yok.</div>
         <?php else: ?>
           <div style="overflow:auto">
-            <table>
-              <thead><tr><th style="width:70px">ID</th><th>Ad</th><th style="width:190px">Başlangıç</th><th style="width:190px">Bitiş</th><th style="width:120px">Miktar</th><th style="width:120px">Birim</th></tr></thead>
+            <table class="table table-striped">
+              <thead>
+                  <tr>
+                      <th>Operasyon Adı</th>
+                      <th>Başlangıç</th>
+                      <th>Bitiş</th>
+                      <th>Süre</th>
+                      <th>Miktar</th>
+                      <th>Birim</th>
+                      <th>Toplam Enerji (kWh)</th>
+                      <th>Enerji Verimliliği</th>
+                      <th>İşlemler</th>
+                  </tr>
+              </thead>
               <tbody>
-              <?php foreach ($tamamlanan as $op): ?>
-                <tr>
-                  <td><?= htmlspecialchars((string)$op['id']) ?></td>
-                  <td><?= htmlspecialchars($op['ad']) ?></td>
-                  <td><span class="kbd"><?= htmlspecialchars($op['baslangic']) ?></span></td>
-                  <td><span class="kbd"><?= htmlspecialchars($op['bitis']) ?></span></td>
-                  <td><?= htmlspecialchars((string)$op['miktar']) ?></td>
-                  <td><?= htmlspecialchars((string)$op['birim']) ?></td>
-                </tr>
-              <?php endforeach; ?>
+                  <?php
+                  foreach ($tamamlanan as $row):
+                      $baslangic_ts = strtotime($row['baslangic']);
+                      $bitis_ts = strtotime($row['bitis']);
+                      $sure_dk = ($bitis_ts - $baslangic_ts) / 60;
+                  ?>
+                  <tr>
+                      <td><?= htmlspecialchars($row['ad']) ?></td>
+                      <td><?= date('d.m.Y H:i', $baslangic_ts) ?></td>
+                      <td><?= date('d.m.Y H:i', $bitis_ts) ?></td>
+                      <td><?= number_format($sure_dk, 0) ?> dk</td>
+                      <td><?= $row['miktar'] ? number_format((float)$row['miktar'], 2) : '-' ?></td>
+                      <td><?= $row['birim'] ?: '-' ?></td>
+                      <td>
+                          <?php if(isset($row['enerji_hesaplandi']) && $row['enerji_hesaplandi'] == 1): ?>
+                              <span class="badge badge-success">
+                                  <?= number_format((float)($row['toplam_aktif_guc_kwh'] ?? 0), 2) ?> kWh
+                              </span>
+                              <br><small class="text-muted"><?= (int)($row['analizor_sayisi'] ?? 0) ?> analizör</small>
+                          <?php else: ?>
+                              <button class="btn btn-sm btn-outline-primary" onclick="hesaplaEnerji(<?= $row['id'] ?>)">
+                                  <i class="fas fa-calculator"></i> Hesapla
+                              </button>
+                          <?php endif; ?>
+                      </td>
+                      <td>
+                          <?php if(isset($row['enerji_hesaplandi']) && $row['enerji_hesaplandi'] == 1 && $row['miktar'] > 0): ?>
+                              <?php 
+                              $verimlilik = (float)($row['toplam_aktif_guc_kwh'] ?? 0) / (float)$row['miktar'];
+                              $renk = $verimlilik < 1 ? 'success' : ($verimlilik < 2 ? 'warning' : 'danger');
+                              ?>
+                              <span class="badge badge-<?= $renk ?>">
+                                  <?= number_format($verimlilik, 3) ?> kWh/<?= htmlspecialchars($row['birim'] ?? '') ?>
+                              </span>
+                          <?php else: ?>
+                              <span class="text-muted">-</span>
+                          <?php endif; ?>
+                      </td>
+                      <td>
+                          <button class="btn btn-sm btn-info" onclick="detayGoster(<?= $row['id'] ?>)">
+                              <i class="fas fa-eye"></i> Detay
+                          </button>
+                      </td>
+                  </tr>
+                  <?php endforeach; ?>
               </tbody>
-            </table>
+          </table>
           </div>
         <?php endif; ?>
       </div>
@@ -240,5 +287,146 @@ if ($q = $db->query("SELECT * FROM enerji_operasyonlar WHERE bitis IS NOT NULL O
     </footer>
   </main>
   <script src="assets/app.js"></script>
+  <script>
+  function hesaplaEnerji(operasyonId) {
+      if(!confirm('Bu operasyon için enerji tüketimini hesaplamak istediğinize emin misiniz?')) {
+          return;
+      }
+      
+      // Basit JavaScript kullanarak butonu değiştir
+      const button = document.querySelector(`button[onclick="hesaplaEnerji(${operasyonId})"]`);
+      if(button) {
+          button.innerHTML = 'Hesaplanıyor...';
+          button.disabled = true;
+      }
+      
+      // Fetch API kullan
+      fetch('enerji_hesapla.php', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `operasyon_id=${operasyonId}`
+      })
+      .then(response => response.json())
+      .then(data => {
+          if(data.success) {
+              alert(`Hesaplama tamamlandı! Toplam: ${data.toplam_kwh} kWh`);
+              location.reload();
+          } else {
+              alert('Hata: ' + data.error);
+              if(button) {
+                button.innerHTML = '<i class="fas fa-calculator"></i> Hesapla';
+                button.disabled = false;
+            }
+          }
+      })
+      .catch(error => {
+          alert('Sunucu hatası oluştu: ' + error);
+          if(button) {
+            button.innerHTML = '<i class="fas fa-calculator"></i> Hesapla';
+            button.disabled = false;
+        }
+      });
+  }
+
+  function detayGoster(operasyonId) {
+    // Modal HTML'i oluştur
+    const modalHtml = `
+        <div id="detayModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 80vh; overflow-y: auto; width: 90%;">
+                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 20px;">
+                    <h3>Operasyon Detayı</h3>
+                    <button onclick="kapatModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div id="detayIcerik">Yükleniyor...</div>
+            </div>
+        </div>
+    `;
+    
+    // Modal'ı sayfaya ekle
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Detay verilerini yükle
+    fetch('operasyon_detay.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `operasyon_id=${operasyonId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            const detay = data.detay;
+            const op = detay.operasyon;
+            
+            let html = `
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Operasyon Adı:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${op.ad}</td></tr>
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Başlangıç:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${op.baslangic}</td></tr>
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Bitiş:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${op.bitis || 'Devam ediyor'}</td></tr>
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Süre:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${Math.round(detay.sure_dk)} dakika</td></tr>
+                    <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Miktar:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${op.miktar || '-'} ${op.birim || ''}</td></tr>
+                </table>
+            `;
+            
+            if(detay.analizor_verileri.length > 0) {
+                html += `
+                    <h4 style="margin-top: 20px;">Analizör Verileri:</h4>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f5f5f5;">
+                                <th style="padding: 8px; border: 1px solid #ddd;">Analizör ID</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Veri Sayısı</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Ort. Güç (kW)</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Min Güç (kW)</th>
+                                <th style="padding: 8px; border: 1px solid #ddd;">Max Güç (kW)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                detay.analizor_verileri.forEach(analizor => {
+                    html += `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${analizor.analizor_id}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${analizor.veri_sayisi}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${parseFloat(analizor.ortalama_guc).toFixed(2)}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${parseFloat(analizor.min_guc).toFixed(2)}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${parseFloat(analizor.max_guc).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+            } else {
+                html += '<p style="margin-top: 20px;"><em>Bu operasyon için analizör verisi bulunamadı.</em></p>';
+            }
+            
+            document.getElementById('detayIcerik').innerHTML = html;
+        } else {
+            document.getElementById('detayIcerik').innerHTML = `<p style="color: red;">Hata: ${data.error}</p>`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('detayIcerik').innerHTML = `<p style="color: red;">Sunucu hatası: ${error}</p>`;
+    });
+}
+
+function kapatModal() {
+    const modal = document.getElementById('detayModal');
+    if(modal) {
+        modal.remove();
+    }
+}
+
+// ESC tuşu ile modal kapatma
+document.addEventListener('keydown', function(e) {
+    if(e.key === 'Escape') {
+        kapatModal();
+    }
+});
+  </script>
 </body>
 </html>
