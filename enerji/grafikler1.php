@@ -424,6 +424,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
   <style>
     .canvas-wrap{position:relative;height:330px}
     @media (max-width:800px){.canvas-wrap{height:260px}}
@@ -817,12 +818,21 @@ $genMs = round((microtime(true)-$started)*1000,2);
     let OPS_ENABLED = true;
     let DEV_FILTER_COLLAPSED = false; // kullanılmıyor ama kalsın
 
+    // EKLENDİ: OPS_FROM_SERVER -> OPS_CACHE (ISO T ile)
+    OPS_CACHE = (OPS_FROM_SERVER || []).map(o => ({
+      id: o.id,
+      name: o.ad,
+      start: (o.baslangic || '').replace(' ','T'),
+      end: (o.bitis ? o.bitis.replace(' ','T') : RANGE_END_ISO.replace(' ','T')),
+      qty: o.miktar,
+      unit: o.birim
+    }));
+
     // Yardımcılar
     function parseTs(str){
       if(!str) return NaN;
       return Date.parse(String(str).replace(' ','T'));
     }
-    // YENİ: ISO kısaltılmış formatter (datetime-local uyumlu)
     function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
     function selectedDeviceIds(){
       const sel = document.getElementById('deviceSelect');
@@ -837,6 +847,31 @@ $genMs = round((microtime(true)-$started)*1000,2);
       const ids=[...box.querySelectorAll('input[type=checkbox]')].filter(i=>i.checked).map(i=>parseInt(i.value,10));
       return ids.length? ids : (DEVICES||[]).map(d=>d.cihaz_id);
     }
+
+    // EKLENDİ: Cihaz seçimi yardımcıları
+    function refreshSelectedCount(){
+      const total = (DEVICES||[]).length;
+      const selCount = selectedDeviceIds().length;
+      const el = document.getElementById('devSelCount');
+      if (el) el.textContent = `Seçili: ${selCount}/${total}`;
+    }
+    function initDeviceFilter(){
+      const sel = document.getElementById('deviceSelect');
+      if (sel) sel.addEventListener('change', refreshSelectedCount);
+      refreshSelectedCount();
+    }
+    function selectAllDevices(){
+      const sel=document.getElementById('deviceSelect'); if(!sel) return;
+      [...sel.options].forEach(o=>o.selected=true);
+      refreshSelectedCount();
+    }
+    function clearAllDevices(){
+      const sel=document.getElementById('deviceSelect'); if(!sel) return;
+      [...sel.options].forEach(o=>o.selected=false);
+      refreshSelectedCount();
+    }
+    function refreshDeviceChips(){ /* listbox kullanılıyor; no-op */ }
+
     function buildUrl(start, end){
       const params=new URLSearchParams();
       if(start) params.set('start', start);
@@ -905,206 +940,210 @@ $genMs = round((microtime(true)-$started)*1000,2);
       goRangeStartEnd(s,e);
     }
 
-    // Gece bantları (opsiyonel)
-    const NightBandPlugin = {
-      id: 'nightBands',
-      beforeDraw(chart){
-        const x = chart.scales?.x, area=chart.chartArea;
-        if(!x||!area||!isFinite(x.min)||!isFinite(x.max)) return;
-        const hour=3600000; let t=x.min-(x.min%hour);
-        const ctx=chart.ctx; ctx.save(); ctx.globalAlpha=.12; ctx.fillStyle='#2d3e50';
-        while(t<x.max){
-          const h=new Date(t).getHours(), night=(h>=19||h<7);
-          const t2=t+hour;
-          if(night){
-            const x1=x.getPixelForValue(t), x2=x.getPixelForValue(t2);
-            const L=Math.max(x1,area.left), R=Math.min(x2,area.right);
-            if(R>L) ctx.fillRect(L,area.top,R-L,area.bottom-area.top);
-          }
-          t=t2;
-        }
-        ctx.restore();
+    // Renk yardımcı
+    function hexToRgba(hex, a){
+      if(!hex || !hex.startsWith('#')) return hex;
+      const v = hex.length===4
+        ? hex.slice(1).split('').map(x=>parseInt(x+x,16))
+        : [hex.slice(1,3),hex.slice(3,5),hex.slice(5,7)].map(x=>parseInt(x,16));
+      return `rgba(${v[0]},${v[1]},${v[2]},${a})`;
+    }
+
+    // Gece bantları (19:00-07:00) -> ECharts markArea
+    function buildNightAreas(startIso, endIso){
+      const items=[];
+      const s = new Date(startIso.replace(' ','T'));
+      const e = new Date(endIso.replace(' ','T'));
+      if(!(s instanceof Date) || !(e instanceof Date) || isNaN(+s) || isNaN(+e)) return items;
+      const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      for(let d=new Date(d0); d<=e; d.setDate(d.getDate()+1)){
+        const n1 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 0, 0);
+        const n2 = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 7, 0, 0);
+        const a = Math.max(+n1, +s), b = Math.min(+n2, +e);
+        if(b > a) items.push([{ xAxis: new Date(a).toISOString().slice(0,19).replace('T','T') }, { xAxis: new Date(b).toISOString().slice(0,19).replace('T','T') }]);
       }
-    };
-
-    // Operasyon overlay
-    const OperationsOverlayPlugin = {
-      id:'opsOverlay',
-      afterDatasetsDraw(chart,args,opts){
-        if(!opts || !opts.enabled || !Array.isArray(opts.items) || !opts.items.length) return;
-        const x=chart.scales?.x, area=chart.chartArea; if(!x||!area) return;
-        const ctx=chart.ctx; ctx.save();
-        const fills=['rgba(30,144,255,0.16)','rgba(20,201,176,0.16)','rgba(255,165,0,0.14)','rgba(220,20,60,0.12)'];
-        // Bantlar
-        opts.items.forEach((op,i)=>{
-          const x1=x.getPixelForValue(op.start), x2=x.getPixelForValue(op.end);
-          if(!isFinite(x1)||!isFinite(x2)) return;
-          const L=Math.max(Math.min(x1,x2),area.left), R=Math.min(Math.max(x1,x2),area.right);
-          if(R>L) { ctx.fillStyle=fills[i%fills.length]; ctx.fillRect(L,area.top,R-L,area.bottom-area.top); }
-        });
-        // Başlangıç/bitis çizgileri
-        ctx.lineWidth=1;
-        opts.items.forEach(op=>{
-          const s=x.getPixelForValue(op.start), e=x.getPixelForValue(op.end);
-          if(isFinite(s)&&s>=area.left&&s<=area.right){ ctx.strokeStyle='rgba(0,160,0,1)'; ctx.beginPath(); ctx.moveTo(s,area.top); ctx.lineTo(s,area.bottom); ctx.stroke(); }
-          if(isFinite(e)&&e>=area.left&&e<=area.right){ ctx.strokeStyle='rgba(200,0,0,1)'; ctx.beginPath(); ctx.moveTo(e,area.top); ctx.lineTo(e,area.bottom); ctx.stroke(); }
-        });
-
-        // Etiket yazıları (ad/ID)
-        if (opts.showLabels) {
-          ctx.font = '11px Segoe UI, Arial, sans-serif';
-          opts.items.forEach((op,i)=>{
-            const x1=x.getPixelForValue(op.start), x2=x.getPixelForValue(op.end);
-            if(!isFinite(x1)||!isFinite(x2)) return;
-            const L=Math.max(Math.min(x1,x2),area.left), R=Math.min(Math.max(x1,x2),area.right);
-            if(R<=L) return;
-            // SADECE İSİM
-            const text = (op.name && op.name.trim().length) ? op.name : 'Operasyon';
-            const w = Math.ceil(ctx.measureText(text).width) + 10;
-            const h = 16;
-            let cx = (L + R) / 2 - w/2;
-            if (cx < area.left) cx = area.left;
-            if (cx + w > area.right) cx = area.right - w;
-            const cy = area.top + 6;
-            ctx.fillStyle = 'rgba(0,0,0,0.45)';
-            ctx.fillRect(cx, cy, w, h);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, cx + 5, cy + 12);
-          });
-        }
-        ctx.restore();
-      }
-    };
-
-    function bootPlugins(){
-      if(typeof Chart==='undefined') return;
-      try{
-        if(!Chart._nightReg){ Chart.register(NightBandPlugin); Chart._nightReg=true; }
-        if(!Chart._opsReg){ Chart.register(OperationsOverlayPlugin); Chart._opsReg=true; }
-      }catch(e){ console.warn('Plugin register hata:', e); }
+      return items;
     }
 
-    // Seçim yardımcıları (selectedDeviceIds üstte tanımlı; tekrarını sildik)
-
-    // EKLENDİ: Seçili sayacı
-    function refreshSelectedCount(){
-      const total=(DEVICES||[]).length;
-      const sel=selectedDeviceIds().length;
-      const el=document.getElementById('devSelCount');
-      if(el) el.textContent=`Seçili: ${sel}/${total}`;
+    // Operasyon alanları -> ECharts markArea + markLine
+    function buildOpAreas(ops){
+      const areas = [];
+      const lines = [];
+      (ops||[]).forEach(o=>{
+        if(!o.start || !o.end) return;
+        areas.push([{ xAxis:o.start }, { xAxis:o.end }]);
+        lines.push({ xAxis:o.start }, { xAxis:o.end });
+      });
+      return { areas, lines };
     }
 
-    // NO-OP: checkbox görünümü kaldırıldığı için
-    function refreshDeviceChips(){ /* intentionally empty */ }
+    // Chart.js eklentilerini kaydetme fonksiyonu artık kullanılmıyor
+    function bootPlugins(){}
 
-    function initDeviceFilter(){
-      const sel=document.getElementById('deviceSelect');
-      if(sel){
-        sel.addEventListener('change', refreshSelectedCount);
-      }
-      refreshSelectedCount();
-    }
-
-    function selectAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=true);
-      refreshSelectedCount();
-    }
-    function clearAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=false);
-      refreshSelectedCount();
-    }
-
-    // qr(h) kaldırıldı, artık kullanılmıyor
-
+    // ECharts ile grafik kur
     function buildCharts(){
       const container=document.getElementById('charts'); if(!container) return;
       // Eski chartları temizle
-      Object.values(chartInstances).forEach(({chart})=>{ try{ chart.destroy(); }catch(e){} });
+      Object.values(chartInstances).forEach(({chart})=>{ try{ chart.dispose(); }catch(e){} });
       chartInstances={}; container.innerHTML='';
 
       const ids=new Set(selectedDeviceIds());
-      const min=parseTs(RANGE_START_ISO), max=parseTs(RANGE_END_ISO);
+      const minIso = USE_DATE_FILTER ? RANGE_START_ISO.replace(' ','T') : null;
+      const maxIso = USE_DATE_FILTER ? RANGE_END_ISO.replace(' ','T') : null;
+
+      const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
 
       (DEVICES||[]).forEach(dev=>{
         if(!ids.has(dev.cihaz_id)) return;
+
         const wrap=document.createElement('div'); wrap.className='device';
-
-        // Operasyon etiketi (.tag) – üstte göster
-        if (OPS_ENABLED && OPS_CACHE.length > 0) {
-          const tag = document.createElement('div');
-          tag.className = 'tag op-tag';
-          let txt;
-          if (OPS_CACHE.length === 1) {
-            const o = OPS_CACHE[0];
-            txt = `Operasyon: ${o.name || (o.id!=null? 'ID: '+o.id : '-')}${o.id!=null? ` (ID: ${o.id})` : ''}`;
-          } else {
-            txt = `Operasyonlar: ${OPS_CACHE.length} adet`;
-          }
-          tag.textContent = txt;
-          tag.title = OPS_CACHE.map(o => (o.name? o.name : (o.id!=null? 'ID: '+o.id : '-')) + (o.id!=null? ` [${o.id}]`:'')).join(', ');
-          wrap.appendChild(tag);
-        }
-
         const title=document.createElement('h2'); title.textContent=dev.label || ('Cihaz '+dev.cihaz_id);
         const cwrap=document.createElement('div'); cwrap.className='canvas-wrap';
-        const canv=document.createElement('canvas');
-        cwrap.appendChild(canv);
+        const div=document.createElement('div'); div.style.width='100%'; div.style.height='330px';
+        cwrap.appendChild(div);
         wrap.appendChild(title); wrap.appendChild(cwrap); container.appendChild(wrap);
 
-        const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
-        const datasets=(dev.series||[]).map((s,idx)=>({
-          label: s.name || ('Seri '+(idx+1)),
-          data: Array.isArray(s.data)? s.data : [],
-          parsing: { xAxisKey:'x', yAxisKey:'y' },
-          borderColor: palette[idx%palette.length],
-          backgroundColor: palette[idx%palette.length]+'33',
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0.15
-        }));
+        // Veri serileri
+        const series = (dev.series||[]).map((s,idx)=>{
+          const col = palette[idx%palette.length];
+          return {
+            name: s.name || ('Seri '+(idx+1)),
+            type: 'line',
+            showSymbol: false,
+            smooth: 0.25,
+            sampling: 'lttb',
+            progressive: 800,                // EKLENDİ: performans
+            progressiveThreshold: 5000,      // EKLENDİ: performans
+            lineStyle: { width: 1.6, color: col },
+            areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+              {offset:0, color: hexToRgba(col, 0.28)},
+              {offset:1, color: hexToRgba(col, 0.05)}
+            ]) },
+            // EKLENDİ: vurgulama/blur
+            emphasis: { focus: 'series', lineStyle:{ width: 2.6 } },
+            blur:     { lineStyle:{ opacity: 0.25 }, itemStyle:{ opacity: 0.25 }, areaStyle:{ opacity: 0.15 } },
+            data: Array.isArray(s.data) ? s.data.map(p=>[p.x, p.y]) : []
+          };
+        });
 
-        const cfg={
-          type:'line',
-          data:{ datasets },
-          options:{
-            responsive:true, maintainAspectRatio:false,
-            scales:{
-              x:{
-                type:'time',
-                time:{ tooltipFormat:'dd.MM.yyyy HH:mm', displayFormats:{ minute:'dd MMM HH:mm', hour:'dd MMM HH:mm', day:'dd MMM' } },
-                min: USE_DATE_FILTER && isFinite(min)? min: undefined,
-                max: USE_DATE_FILTER && isFinite(max)? max: undefined,
-                ticks:{ autoSkip:true, maxTicksLimit:10 }
-              },
-              y:{ beginAtZero:false, ticks:{ precision:3 } }
+        // Gece bantları
+        const nightAreas = buildNightAreas(RANGE_START_ISO, RANGE_END_ISO);
+        if(nightAreas.length){
+          series.push({
+            name:'Gece',
+            type:'line',
+            data:[],
+            silent:true,
+            markArea:{
+              itemStyle:{ color:'rgba(45,62,80,0.16)' },
+              data: nightAreas
+            }
+          });
+        }
+
+        // Operasyon overlay
+        if(OPS_ENABLED && OPS_CACHE.length){
+          const {areas, lines} = buildOpAreas(OPS_CACHE);
+          series.push({
+            name:'Operasyon',
+            type:'line',
+            data:[],
+            silent:true,
+            markArea:{ itemStyle:{ color:'rgba(20,201,176,0.16)' }, data: areas },
+            markLine:{
+              symbol:'none',
+              lineStyle:{ color:'rgba(200,0,0,0.7)', width:1 },
+              data: lines
+            }
+          });
+        }
+
+        const option = {
+          color: palette,
+          // Legend + selector için ekstra üst boşluk
+          grid:{ left:48, right:18, top:72, bottom:44 },
+          // Üstteki “tarih” etiketinin (axisPointer label) okunabilir olması için stil
+          axisPointer:{
+            link: [{ xAxisIndex: 'all' }],
+            label: {
+              show: true,
+              backgroundColor: 'rgba(2,6,23,0.92)',
+              color: '#e2e8f0',
+              borderColor: 'rgba(148,163,184,0.35)',
+              borderWidth: 1,
+              padding: [4,6],
+              shadowBlur: 0
             },
-            plugins:{
-              legend:{ display:true, position:'top' },
-              tooltip:{ intersect:false, mode:'index' },
-              decimation:{ enabled:true, algorithm:'lttb', samples: 2000 }, // EKLENDİ
-              nightBands:{},
-              opsOverlay: (OPS_ENABLED && OPS_CACHE.length>0)
-                ? { enabled:true, showLabels:true, items: OPS_CACHE.map(o=>({start:o.start,end:o.end,name:o.name,id:o.id,qty:o.qty,unit:o.unit})) }
-                : { enabled:false, items: [] }
-            },
-            interaction:{ intersect:false, mode:'nearest' },
-            elements:{ point:{ radius:0 } }
-          }
+            lineStyle: { color:'#94a3b8', width:1, type:'dashed' },
+            crossStyle:{ color:'#94a3b8' }
+          },
+           tooltip:{
+             trigger:'axis',
+             order: 'valueDesc',             // EKLENDİ: büyükten küçüğe sırala
+            axisPointer:{ type:'cross' }    // cross davranışı aktif
+           },
+          // EKLENDİ: legend scroll + selector
+          legend:{
+            type:'scroll',
+            top: 4,
+            left: 8,
+            padding: [0, 0, 8, 0],   // legend altına boşluk
+            itemGap: 14,
+            pageIconColor:'#0ea5e9',
+            pageTextStyle:{ color:'#334155' },
+            selector: [{type:'all', title:'Tümünü seç'}, {type:'inverse', title:'Tersini seç'}],
+            // Tarayıcı/tema farklarında okunaklı metin
+            textStyle:{ color:'#334155' }
+          },
+          toolbox:{ show:true, right:8, feature:{ saveAsImage:{}, dataZoom:{}, restore:{} } },
+          xAxis:{
+            type:'time',
+            min: minIso || undefined,
+            max: maxIso || undefined,
+            axisLabel:{ color:'#334155' },
+            axisLine:{ lineStyle:{ color:'#cbd5e1' } },
+            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } }
+          },
+          yAxis:{
+            type:'value',
+            scale: true,                     // EKLENDİ: 0’a sabitleme yok, daha dengeli görünüm
+            axisLabel:{ color:'#334155' },
+            axisLine:{ lineStyle:{ color:'#cbd5e1' } },
+            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } }
+          },
+          dataZoom:[
+            { type:'inside', xAxisIndex:0 },
+            { type:'slider', xAxisIndex:0, height:18 }
+          ],
+          animationDuration: 600,            // EKLENDİ: hafif animasyon
+          stateAnimation: { duration: 200 }, // EKLENDİ: hover/legend geçişi akıcı
+          series
         };
 
-        const chart=new Chart(canv.getContext('2d'), cfg);
-        chartInstances[dev.cihaz_id]={ chart, wrapper:wrap };
+        const ec = echarts.init(div, null, {renderer:'canvas'});
+        ec.setOption(option);
+        window.addEventListener('resize', ()=> ec.resize());
+        chartInstances[dev.cihaz_id]={ chart: ec, wrapper: wrap };
       });
-      console.log('Grafik kurulum tamam. Cihaz:', Object.keys(chartInstances).length);
+
+      // EKLENDİ: Tüm grafiklerde senkron zoom/tooltip
+      try{
+        const toConnect = Object.values(chartInstances).map(o=>o.chart);
+        if (toConnect.length > 1) echarts.connect(toConnect);
+      }catch(_){}
+
+      console.log('ECharts kurulum tamam. Cihaz:', Object.keys(chartInstances).length);
     }
   </script>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      if (typeof Chart === 'undefined') { console.error('Chart.js yüklenemedi'); return; }
-      bootPlugins();
+      if (typeof echarts === 'undefined') {
+        console.error('ECharts yüklenemedi');
+        const c = document.getElementById('charts');
+        if (c) c.innerHTML = '<div class="panel errors">ECharts yüklenemedi. İnternet bağlantısını veya CDN erişimini kontrol edin.</div>';
+        return;
+      }
       initDeviceFilter();
       refreshDeviceChips(); // no-op
       const chk=document.getElementById('opsToggle');

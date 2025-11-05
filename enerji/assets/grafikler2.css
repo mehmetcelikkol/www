@@ -1,0 +1,23 @@
+:root{
+  --bg:#f8fafc; --card:#fff; --muted:#64748b; --border:#e5e7eb; --primary:#0ea5e9;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:#0f172a;font:14px/1.5 "Segoe UI",Arial,Helvetica,sans-serif}
+.container{max-width:1200px;margin:16px auto;padding:0 12px}
+
+.panel{background:#f1f5f9;border:1px solid #e2e8f0;padding:10px;border-radius:8px;margin:8px 0}
+.panel.warn{background:#fee2e2;border-color:#fecaca;color:#7f1d1d}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border)}
+.card-title{margin:0;font-size:16px;font-weight:600}
+.card-actions{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.card-body{padding:10px 12px}
+
+.device-card .canvas-wrap{height:360px}
+#chartRegion{margin-top:12px}
+
+.btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;border-radius:8px;padding:6px 10px;cursor:pointer}
+.btn:hover{border-color:#cbd5e1}
+.select, select{border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:#fff;color:#0f172a}
+.small{font-size:12px;color:var(--muted)}
