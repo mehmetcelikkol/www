@@ -136,7 +136,10 @@ if($config){
         if($mysqli->connect_error){ $errors[]='MySQL bağlantı hatası: '.$mysqli->connect_error; }
         else {
             $mysqli->set_charset('utf8');
-            $sql = "SELECT o.cihaz_id, o.cihaz_adres_id, o.deger, o.kayit_zamani, c.cihaz_adi, c.konum, ca.ad AS adres_ad\n                    FROM olcumler o\n                    JOIN cihazlar c ON c.id=o.cihaz_id\n                    JOIN cihaz_adresleri ca ON ca.id=o.cihaz_adres_id";
+            $sql = "SELECT o.cihaz_id, o.cihaz_adres_id, o.deger, o.kayit_zamani, c.cihaz_adi, c.konum, ca.ad AS adres_ad, ca.unit AS adres_unit
+                    FROM olcumler o
+                    JOIN cihazlar c ON c.id=o.cihaz_id
+                    JOIN cihaz_adresleri ca ON ca.id=o.cihaz_adres_id";
             if($useDateFilter){
                 $sql .= " WHERE o.kayit_zamani BETWEEN ? AND ?";
             }
@@ -147,7 +150,7 @@ if($config){
                 if($useDateFilter){ if(!$st->bind_param('ss',$startSql,$endSql)) $errors[]='bind_param başarısız: '.$st->error; }
                 if(empty($errors) && !$st->execute()) $errors[]='Sorgu çalıştırma hatası: '.$st->error;
                 else {
-                    if(!$st->bind_result($cihaz_id,$cihaz_adres_id,$deger,$kayit_zamani,$cihaz_adi,$konum,$adres_ad)){
+                    if(!$st->bind_result($cihaz_id,$cihaz_adres_id,$deger,$kayit_zamani,$cihaz_adi,$konum,$adres_ad,$adres_unit)){
                         $errors[]='bind_result hatası: '.$st->error;
                     } else {
                         $rowCounter=0; $devicesTmp=[];
@@ -168,7 +171,7 @@ if($config){
                             }
                             $key=$addrId.'|'.$adres_ad;
                             if(!isset($devicesTmp[$cid]['series'][$key])){
-                                $devicesTmp[$cid]['series'][$key]=['name'=>$adres_ad,'data'=>[]];
+                                $devicesTmp[$cid]['series'][$key]=['name'=>$adres_ad,'unit'=>$adres_unit ?? '', 'data'=>[]]; // unit eklendi
                             }
                             $isoTime = str_replace(' ','T',$kayit_zamani);
                             $devicesTmp[$cid]['series'][$key]['data'][]=['x'=>$isoTime,'y'=>(float)$deger];
@@ -186,7 +189,7 @@ if($config){
                         }
                         $GLOBALS['__debugFirstRows']=$firstRows; $GLOBALS['__debugLastRows']=$lastRows; // template erişimi için
                         foreach($devicesTmp as $cid=>$d){
-                            $series=[]; foreach($d['series'] as $s){ $series[]=['name'=>$s['name'],'data'=>$s['data']]; }
+                            $series=[]; foreach($d['series'] as $s){ $series[]=['name'=>$s['name'],'unit'=>$s['unit'] ?? '', 'data'=>$s['data']]; } // unit JSON’a eklendi
                             $devicesOut[]=['cihaz_id'=>$cid,'label'=>$d['label'],'series'=>$series];
                         }
                         unset($devicesTmp);
@@ -194,7 +197,7 @@ if($config){
                 }
                 $st->close();
 
-                // DEĞİŞTİRİLDİ: Operasyonları auth.php'deki DB'den çek (ölçüm DB’si değil)
+                // DEĞİŞTİ: Operasyonları auth.php'deki DB'den çek (ölçüm DB’si değil)
                 $opsOut = [];
                 // Aralık: filtre varsa onu, yoksa ölçümlerin kapsadığı aralığı kullan
                 if ($useDateFilter) {
@@ -335,52 +338,6 @@ if (isset($_GET['debug'])) {
     $notes[] = "Debug: Açık(ham): $openRawCnt, Açık(kesişen): $openCount, Toplam ops: $opsCount";
 }
 
-// Grafik aralığı (özet ve kapsama için) — formdaki aralık esas alınır
-$rangeStartTs = strtotime($startDT->format('Y-m-d H:i:s'));
-$rangeEndTs   = strtotime($endDT->format('Y-m-d H:i:s'));
-if (!is_int($rangeStartTs) || !is_int($rangeEndTs) || $rangeEndTs <= $rangeStartTs) {
-    $rangeStartTs = $rangeStartTs ?: time();
-    $rangeEndTs   = max($rangeStartTs + 1, $rangeEndTs ?: ($rangeStartTs + 1));
-}
-
-$openCount = 0; $closedCount = 0;
-$openSec = 0;   $closedSec = 0;
-$intervals = [];
-
-if ($opsCount > 0) {
-    foreach ($opsOut as $op) {
-        $s = strtotime((string)$op['baslangic']);
-
-        // Normalize bitiş
-        $bitisRaw = $op['bitis'] ?? null;
-        if ($bitisRaw !== null) $bitisRaw = trim((string)$bitisRaw);
-        $isOpen = ($bitisRaw === null || $bitisRaw === '' || $bitisRaw === '0000-00-00 00:00:00' || $bitisRaw === '1970-01-01 00:00:00');
-
-        $e = $isOpen ? $rangeEndTs : strtotime((string)$bitisRaw);
-        if (!is_int($s) || !is_int($e)) continue;
-
-        // Aralık kesişimi
-        $a = max($s, $rangeStartTs);
-        $b = min($e, $rangeEndTs);
-        if ($b <= $a) continue;
-
-        if ($isOpen) { $openCount++; $openSec += ($b - $a); }
-        else { $closedCount++; $closedSec += ($b - $a); }
-
-        $intervals[] = [$a, $b];
-    }
-}
-
-// (İsteğe bağlı debug)
-if (isset($_GET['debug'])) {
-    $openRawCnt = 0;
-    foreach ($opsOut as $op) {
-        $r = $op['bitis'] ?? null; if ($r !== null) $r = trim((string)$r);
-        if ($r === null || $r === '' || $r === '0000-00-00 00:00:00' || $r === '1970-01-01 00:00:00') $openRawCnt++;
-    }
-    $notes[] = "Debug: Açık(ham): $openRawCnt, Açık(kesişen): $openCount, Toplam ops: $opsCount";
-}
-
 // Kapsama: aralıkların birleşimi
 $coveredSec = 0;
 if (!empty($intervals)) {
@@ -424,6 +381,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
   <style>
     .canvas-wrap{position:relative;height:330px}
     @media (max-width:800px){.canvas-wrap{height:260px}}
@@ -627,6 +585,45 @@ $genMs = round((microtime(true)-$started)*1000,2);
     .field input[type="datetime-local"]{
       width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px;
     }
+
+    /* GRAFİK + YAN PANEL DÜZENİ */
+    .chart-row{ display:grid; grid-template-columns: 1fr 230px; gap:12px; align-items: stretch; }
+    @media (max-width:900px){ .chart-row{ grid-template-columns: 1fr; } }
+
+    .chart-side{
+      border:1px solid #e5e7eb; border-radius:8px; background:#fff;
+      padding:10px; font-size:12px; color:#334155;
+    }
+    .chart-side .group{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+    .chart-side .label{ font-size:11px; color:#64748b; }
+    .chart-side .value{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+
+    /* RAPOR MODAL */
+    .modal-overlay{
+      position:fixed; inset:0; background:rgba(15,23,42,0.45);
+      display:flex; align-items:center; justify-content:center; z-index:9999;
+    }
+    .modal{
+      width:min(920px, 92vw); max-height:90vh; overflow:auto;
+      background:#ffffff; border-radius:10px; border:1px solid #e5e7eb;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    }
+    .modal header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px; border-bottom:1px solid #f1f5f9;
+    }
+    .modal header h3{ font-size:14px; margin:0; color:#0f172a; }
+    .modal .content{ padding:12px 14px; font-size:12px; color:#334155; }
+    .modal .content table{ width:100%; border-collapse:collapse; font-size:12px; background:#fff }
+    .modal .content th, .modal .content td{ border:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
+    .modal .content th{ background:#f8fafc; font-weight:600; }
+    .modal .muted{ color:#64748b; font-size:11px; }
+    /* EKLENDİ: Vurgulu satırlar (seri adı eşleşenler) kalın fonts */
+    .modal .content tr.emph-row { font-weight:700; }
+    .btn-close{
+      background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer;
+    }
+    .btn-close:hover{ background:#f8fafc; }
   </style>
   <!-- parseTs helper script kaldırıldı; tek kopyası altta "Yardımcılar" bölümünde -->
 </head>
@@ -817,13 +814,26 @@ $genMs = round((microtime(true)-$started)*1000,2);
     let OPS_ENABLED = true;
     let DEV_FILTER_COLLAPSED = false; // kullanılmıyor ama kalsın
 
+    // EKLENDİ: dataZoom ile görünür zaman aralığı (global)
+    window.ZOOM_RANGE = null; // { startTs, endTs, startIso, endIso, startPct, endPct, deviceId }
+
+    // EKLENDİ: OPS_FROM_SERVER -> OPS_CACHE (ISO T ile)
+    OPS_CACHE = (OPS_FROM_SERVER || []).map(o => ({
+      id: o.id,
+      name: o.ad,
+      start: (o.baslangic || '').replace(' ','T'),
+      end: (o.bitis ? o.bitis.replace(' ','T') : RANGE_END_ISO.replace(' ','T')),
+      qty: o.miktar,
+      unit: o.birim
+    }));
+
     // Yardımcılar
     function parseTs(str){
       if(!str) return NaN;
       return Date.parse(String(str).replace(' ','T'));
     }
-    // YENİ: ISO kısaltılmış formatter (datetime-local uyumlu)
     function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
+    function fmtDisp(ts){ const d=new Date(ts); if(!Number.isFinite(+d)) return '-'; return fmt(d).replace('T',' '); } // Ekran tarihi
     function selectedDeviceIds(){
       const sel = document.getElementById('deviceSelect');
       if (sel) {
@@ -837,14 +847,41 @@ $genMs = round((microtime(true)-$started)*1000,2);
       const ids=[...box.querySelectorAll('input[type=checkbox]')].filter(i=>i.checked).map(i=>parseInt(i.value,10));
       return ids.length? ids : (DEVICES||[]).map(d=>d.cihaz_id);
     }
+
+    // EKLENDİ: Cihaz seçimi yardımcıları
+    function refreshSelectedCount(){
+      const total = (DEVICES||[]).length;
+      const selCount = selectedDeviceIds().length;
+      const el = document.getElementById('devSelCount');
+      if (el) el.textContent = `Seçili: ${selCount}/${total}`;
+    }
+    function initDeviceFilter(){
+      const sel = document.getElementById('deviceSelect');
+      if (sel) sel.addEventListener('change', refreshSelectedCount);
+      refreshSelectedCount();
+    }
+    function selectAllDevices(){
+      const sel=document.getElementById('deviceSelect'); if(!sel) return;
+      [...sel.options].forEach(o=>o.selected=true);
+      refreshSelectedCount();
+    }
+    function clearAllDevices(){
+      const sel=document.getElementById('deviceSelect'); if(!sel) return;
+      [...sel.options].forEach(o=>o.selected=false);
+      refreshSelectedCount();
+    }
+    function refreshDeviceChips(){ /* listbox kullanılıyor; no-op */ }
+
     function buildUrl(start, end){
-      const params=new URLSearchParams();
+      const params = new URLSearchParams();
       if(start) params.set('start', start);
       if(end)   params.set('end',   end);
-      const ids=selectedDeviceIds();
+      const ids = selectedDeviceIds();
       ids.forEach(id=>params.append('dev[]', String(id)));
-      const qs=params.toString();
-      return 'grafikler1.php' + (qs? ('?'+qs):'');
+      // Mevcut sayfanın yolu (grafikler.php ya da grafiker1.php fark etmez)
+      const basePath = window.location.pathname;
+      const qs = params.toString();
+      return basePath + (qs ? ('?'+qs) : '');
     }
     function goRangeStartEnd(startDate, endDate){
       const s = fmt(startDate), e = fmt(endDate);
@@ -905,213 +942,496 @@ $genMs = round((microtime(true)-$started)*1000,2);
       goRangeStartEnd(s,e);
     }
 
-    // Gece bantları (opsiyonel)
-    const NightBandPlugin = {
-      id: 'nightBands',
-      beforeDraw(chart){
-        const x = chart.scales?.x, area=chart.chartArea;
-        if(!x||!area||!isFinite(x.min)||!isFinite(x.max)) return;
-        const hour=3600000; let t=x.min-(x.min%hour);
-        const ctx=chart.ctx; ctx.save(); ctx.globalAlpha=.12; ctx.fillStyle='#2d3e50';
-        while(t<x.max){
-          const h=new Date(t).getHours(), night=(h>=19||h<7);
-          const t2=t+hour;
-          if(night){
-            const x1=x.getPixelForValue(t), x2=x.getPixelForValue(t2);
-            const L=Math.max(x1,area.left), R=Math.min(x2,area.right);
-            if(R>L) ctx.fillRect(L,area.top,R-L,area.bottom-area.top);
-          }
-          t=t2;
-        }
-        ctx.restore();
+    // Renk yardımcı
+    function hexToRgba(hex, a){
+      if(!hex || !hex.startsWith('#')) return hex;
+      const v = hex.length===4
+        ? hex.slice(1).split('').map(x=>parseInt(x+x,16))
+        : [hex.slice(1,3),hex.slice(3,5),hex.slice(5,7)].map(x=>parseInt(x,16));
+      return `rgba(${v[0]},${v[1]},${v[2]},${a})`;
+    }
+
+    // Gece bantları (19:00-07:00) -> ECharts markArea
+    function buildNightAreas(startIso, endIso){
+      const items=[];
+      const s = new Date(startIso.replace(' ','T'));
+      const e = new Date(endIso.replace(' ','T'));
+      if(!(s instanceof Date) || !(e instanceof Date) || isNaN(+s) || isNaN(+e)) return items;
+      const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      for(let d=new Date(d0); d<=e; d.setDate(d.getDate()+1)){
+        const n1 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 0, 0);
+        const n2 = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 7, 0, 0);
+        const a = Math.max(+n1, +s), b = Math.min(+n2, +e);
+        if(b > a) items.push([{ xAxis: new Date(a).toISOString().slice(0,19).replace('T','T') }, { xAxis: new Date(b).toISOString().slice(0,19).replace('T','T') }]);
       }
-    };
-
-    // Operasyon overlay
-    const OperationsOverlayPlugin = {
-      id:'opsOverlay',
-      afterDatasetsDraw(chart,args,opts){
-        if(!opts || !opts.enabled || !Array.isArray(opts.items) || !opts.items.length) return;
-        const x=chart.scales?.x, area=chart.chartArea; if(!x||!area) return;
-        const ctx=chart.ctx; ctx.save();
-        const fills=['rgba(30,144,255,0.16)','rgba(20,201,176,0.16)','rgba(255,165,0,0.14)','rgba(220,20,60,0.12)'];
-        // Bantlar
-        opts.items.forEach((op,i)=>{
-          const x1=x.getPixelForValue(op.start), x2=x.getPixelForValue(op.end);
-          if(!isFinite(x1)||!isFinite(x2)) return;
-          const L=Math.max(Math.min(x1,x2),area.left), R=Math.min(Math.max(x1,x2),area.right);
-          if(R>L) { ctx.fillStyle=fills[i%fills.length]; ctx.fillRect(L,area.top,R-L,area.bottom-area.top); }
-        });
-        // Başlangıç/bitis çizgileri
-        ctx.lineWidth=1;
-        opts.items.forEach(op=>{
-          const s=x.getPixelForValue(op.start), e=x.getPixelForValue(op.end);
-          if(isFinite(s)&&s>=area.left&&s<=area.right){ ctx.strokeStyle='rgba(0,160,0,1)'; ctx.beginPath(); ctx.moveTo(s,area.top); ctx.lineTo(s,area.bottom); ctx.stroke(); }
-          if(isFinite(e)&&e>=area.left&&e<=area.right){ ctx.strokeStyle='rgba(200,0,0,1)'; ctx.beginPath(); ctx.moveTo(e,area.top); ctx.lineTo(e,area.bottom); ctx.stroke(); }
-        });
-
-        // Etiket yazıları (ad/ID)
-        if (opts.showLabels) {
-          ctx.font = '11px Segoe UI, Arial, sans-serif';
-          opts.items.forEach((op,i)=>{
-            const x1=x.getPixelForValue(op.start), x2=x.getPixelForValue(op.end);
-            if(!isFinite(x1)||!isFinite(x2)) return;
-            const L=Math.max(Math.min(x1,x2),area.left), R=Math.min(Math.max(x1,x2),area.right);
-            if(R<=L) return;
-            // SADECE İSİM
-            const text = (op.name && op.name.trim().length) ? op.name : 'Operasyon';
-            const w = Math.ceil(ctx.measureText(text).width) + 10;
-            const h = 16;
-            let cx = (L + R) / 2 - w/2;
-            if (cx < area.left) cx = area.left;
-            if (cx + w > area.right) cx = area.right - w;
-            const cy = area.top + 6;
-            ctx.fillStyle = 'rgba(0,0,0,0.45)';
-            ctx.fillRect(cx, cy, w, h);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, cx + 5, cy + 12);
-          });
-        }
-        ctx.restore();
-      }
-    };
-
-    function bootPlugins(){
-      if(typeof Chart==='undefined') return;
-      try{
-        if(!Chart._nightReg){ Chart.register(NightBandPlugin); Chart._nightReg=true; }
-        if(!Chart._opsReg){ Chart.register(OperationsOverlayPlugin); Chart._opsReg=true; }
-      }catch(e){ console.warn('Plugin register hata:', e); }
+      return items;
     }
 
-    // Seçim yardımcıları (selectedDeviceIds üstte tanımlı; tekrarını sildik)
-
-    // EKLENDİ: Seçili sayacı
-    function refreshSelectedCount(){
-      const total=(DEVICES||[]).length;
-      const sel=selectedDeviceIds().length;
-      const el=document.getElementById('devSelCount');
-      if(el) el.textContent=`Seçili: ${sel}/${total}`;
+    // Operasyon alanları -> ECharts markArea + markLine
+    function buildOpAreas(ops){
+      const areas = [];
+      const lines = [];
+      (ops||[]).forEach(o=>{
+        if(!o.start || !o.end) return;
+        areas.push([{ xAxis:o.start }, { xAxis:o.end }]);
+        lines.push({ xAxis:o.start }, { xAxis:o.end });
+      });
+      return { areas, lines };
     }
 
-    // NO-OP: checkbox görünümü kaldırıldığı için
-    function refreshDeviceChips(){ /* intentionally empty */ }
+    // Chart.js eklentilerini kaydetme fonksiyonu artık kullanılmıyor
+    function bootPlugins(){}
 
-    function initDeviceFilter(){
-      const sel=document.getElementById('deviceSelect');
-      if(sel){
-        sel.addEventListener('change', refreshSelectedCount);
-      }
-      refreshSelectedCount();
-    }
-
-    function selectAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=true);
-      refreshSelectedCount();
-    }
-    function clearAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=false);
-      refreshSelectedCount();
-    }
-
-    // qr(h) kaldırıldı, artık kullanılmıyor
-
+    // ECharts ile grafik kur
     function buildCharts(){
       const container=document.getElementById('charts'); if(!container) return;
       // Eski chartları temizle
-      Object.values(chartInstances).forEach(({chart})=>{ try{ chart.destroy(); }catch(e){} });
+      Object.values(chartInstances).forEach(({chart})=>{ try{ chart.dispose(); }catch(e){} });
       chartInstances={}; container.innerHTML='';
 
       const ids=new Set(selectedDeviceIds());
-      const min=parseTs(RANGE_START_ISO), max=parseTs(RANGE_END_ISO);
+      const minIso = USE_DATE_FILTER ? RANGE_START_ISO.replace(' ','T') : null;
+      const maxIso = USE_DATE_FILTER ? RANGE_END_ISO.replace(' ','T') : null;
 
-      (DEVICES||[]).forEach(dev=>{
-        if(!ids.has(dev.cihaz_id)) return;
-        const wrap=document.createElement('div'); wrap.className='device';
+      const devicesToShow = (DEVICES||[]).filter(d=>ids.has(d.cihaz_id));
+      if(devicesToShow.length===0){
+        container.innerHTML = '<div class="panel">Seçili cihaz yok veya veri bulunamadı.</div>';
+        return;
+      }
 
-        // Operasyon etiketi (.tag) – üstte göster
-        if (OPS_ENABLED && OPS_CACHE.length > 0) {
-          const tag = document.createElement('div');
-          tag.className = 'tag op-tag';
-          let txt;
-          if (OPS_CACHE.length === 1) {
-            const o = OPS_CACHE[0];
-            txt = `Operasyon: ${o.name || (o.id!=null? 'ID: '+o.id : '-')}${o.id!=null? ` (ID: ${o.id})` : ''}`;
-          } else {
-            txt = `Operasyonlar: ${OPS_CACHE.length} adet`;
-          }
-          tag.textContent = txt;
-          tag.title = OPS_CACHE.map(o => (o.name? o.name : (o.id!=null? 'ID: '+o.id : '-')) + (o.id!=null? ` [${o.id}]`:'')).join(', ');
-          wrap.appendChild(tag);
+      devicesToShow.forEach(dev=>{
+        // Başlık
+        const title = document.createElement('div');
+        title.textContent = dev.label || ('Cihaz ' + dev.cihaz_id);
+        title.style.fontSize='12px';
+        title.style.color='#334155';
+        title.style.margin='6px 0';
+
+        // Satır: Grafik + yan panel
+        const row = document.createElement('div');
+        row.className='chart-row';
+
+        // Grafik alanı
+        const wrap = document.createElement('div');
+        wrap.className='canvas-wrap';
+        const chartDiv = document.createElement('div');
+        chartDiv.style.width='100%';
+        chartDiv.style.height='100%';
+        wrap.appendChild(chartDiv);
+
+        // Yan panel
+        const side = document.createElement('div');
+        side.className='chart-side';
+        const grp1 = document.createElement('div'); grp1.className='group';
+        const lbl1 = document.createElement('div'); lbl1.className='label'; lbl1.textContent='Başlangıç';
+        const val1 = document.createElement('div'); val1.className='value'; val1.textContent='-';
+        const lbl2 = document.createElement('div'); lbl2.className='label'; lbl2.textContent='Bitiş';
+        const val2 = document.createElement('div'); val2.className='value'; val2.textContent='-';
+        grp1.append(lbl1,val1,lbl2,val2);
+
+        const grp2 = document.createElement('div'); grp2.className='group';
+        // DEĞİŞTİ: Tek buton yerine iki buton
+        const btnSummary = document.createElement('button');
+        btnSummary.className='btn btn-outline btn-xs';
+        btnSummary.textContent='Özet Rapor';
+        const btnDetail = document.createElement('button');
+        btnDetail.className='btn btn-primary btn-xs';
+        btnDetail.textContent='Detaylı Rapor';
+        grp2.append(btnSummary, btnDetail);
+
+        side.append(grp1, grp2);
+
+        row.appendChild(wrap);
+        row.appendChild(side);
+
+        const outer = document.createElement('div');
+        outer.style.marginBottom='12px';
+        outer.appendChild(title);
+        outer.appendChild(row);
+        container.appendChild(outer);
+
+        // Cihazın ham veri kapsamı (tüm serilerden)
+        function deviceExtent(dev){
+          let s=Number.POSITIVE_INFINITY, e=Number.NEGATIVE_INFINITY;
+          (dev.series||[]).forEach(sv=>{
+            (sv.data||[]).forEach(p=>{
+              const t = parseTs(p[0] || p.x);
+              if(Number.isFinite(t)){ if(t<s) s=t; if(t>e) e=t; }
+            });
+          });
+          if(!Number.isFinite(s) || !Number.isFinite(e) || e<=s) return null;
+          return {startTs:s, endTs:e};
+        }
+        const devExt = deviceExtent(dev);
+        const initialStart = (minIso ? Date.parse(minIso) : (devExt?.startTs ?? Date.now()-3600*1000));
+        const initialEnd   = (maxIso ? Date.parse(maxIso) : (devExt?.endTs   ?? Date.now()));
+
+        // Başlangıç/Bitiş görüntüle
+        function setSideRange(sTs, eTs){
+          val1.textContent = fmtDisp(sTs);
+          val2.textContent = fmtDisp(eTs);
+        }
+        setSideRange(initialStart, initialEnd);
+
+        const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
+
+        // Veri serileri
+        const series = (dev.series||[]).map((s,idx)=>{
+          const col = palette[idx%palette.length]; // o serinin temel rengi
+          return {
+            name: s.name || ('Seri '+(idx+1)),
+            type: 'line',
+            showSymbol: false,
+            smooth: 0.25,
+            sampling: 'lttb',
+            progressive: 800,
+            progressiveThreshold: 5000,
+            lineStyle: { width: 1.6, color: col },
+            areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+              {offset:0, color: hexToRgba(col, 0.28)},
+              {offset:1, color: hexToRgba(col, 0.05)}
+            ]) },
+            emphasis: { focus: 'series', lineStyle:{ width: 2.6 } },
+            blur:     { lineStyle:{ opacity: 0.25 }, itemStyle:{ opacity: 0.25 }, areaStyle:{ opacity: 0.15 } },
+            data: Array.isArray(s.data) ? s.data.map(p=>[p.x ?? p[0], p.y ?? p[1]]) : []
+          };
+        });
+
+        // Gece bantları
+        const nightAreas = buildNightAreas(RANGE_START_ISO, RANGE_END_ISO);
+        if(nightAreas.length){
+          series.push({
+            name:'Gece',
+            type:'line',
+            data:[],
+            silent:true,
+            markArea:{ itemStyle:{ color:'rgba(45,62,80,0.16)' }, data: nightAreas } // gece saatleri alan dolgu rengi
+          });
         }
 
-        const title=document.createElement('h2'); title.textContent=dev.label || ('Cihaz '+dev.cihaz_id);
-        const cwrap=document.createElement('div'); cwrap.className='canvas-wrap';
-        const canv=document.createElement('canvas');
-        cwrap.appendChild(canv);
-        wrap.appendChild(title); wrap.appendChild(cwrap); container.appendChild(wrap);
+        // Operasyon overlay
+        if(OPS_ENABLED && OPS_CACHE.length){
+          const {areas, lines} = buildOpAreas(OPS_CACHE);
+          series.push({
+            name:'Operasyon',
+            type:'line',
+            data:[],
+            silent:true,
+            markArea:{ itemStyle:{ color:'rgba(20,201,176,0.16)' }, data: areas }, // operasyon aralığı dolgu rengi
+            markLine:{
+              symbol:'none',
+              lineStyle:{ color:'rgba(200,0,0,0.7)', width:1 }, // operasyon düşey çizgi rengi/kalınlığı
+              data: lines
+            }
+          });
+        }
 
-        const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
-        const datasets=(dev.series||[]).map((s,idx)=>({
-          label: s.name || ('Seri '+(idx+1)),
-          data: Array.isArray(s.data)? s.data : [],
-          parsing: { xAxisKey:'x', yAxisKey:'y' },
-          borderColor: palette[idx%palette.length],
-          backgroundColor: palette[idx%palette.length]+'33',
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0.15
-        }));
-
-        const cfg={
-          type:'line',
-          data:{ datasets },
-          options:{
-            responsive:true, maintainAspectRatio:false,
-            scales:{
-              x:{
-                type:'time',
-                time:{ tooltipFormat:'dd.MM.yyyy HH:mm', displayFormats:{ minute:'dd MMM HH:mm', hour:'dd MMM HH:mm', day:'dd MMM' } },
-                min: USE_DATE_FILTER && isFinite(min)? min: undefined,
-                max: USE_DATE_FILTER && isFinite(max)? max: undefined,
-                ticks:{ autoSkip:true, maxTicksLimit:10 }
-              },
-              y:{ beginAtZero:false, ticks:{ precision:3 } }
+        const option = {
+          color: palette,
+          grid:{ left:48, right:18, top:72, bottom:44 },
+          axisPointer:{
+            link: [{ xAxisIndex: 'all' }],
+            label: {
+              show: true,
+              backgroundColor: 'rgba(2,6,23,0.92)', // eksen işaretçisi etiketi arkaplan rengi
+              color: '#ffffff',                      // eksen işaretçisi etiketi yazı rengi
+              borderColor: 'rgba(148,163,184,0.35)', // eksen işaretçisi etiketi kenarlık rengi
+              borderWidth: 1,
+              padding: [4,6],
+              shadowBlur: 0
             },
-            plugins:{
-              legend:{ display:true, position:'top' },
-              tooltip:{ intersect:false, mode:'index' },
-              decimation:{ enabled:true, algorithm:'lttb', samples: 2000 }, // EKLENDİ
-              nightBands:{},
-              opsOverlay: (OPS_ENABLED && OPS_CACHE.length>0)
-                ? { enabled:true, showLabels:true, items: OPS_CACHE.map(o=>({start:o.start,end:o.end,name:o.name,id:o.id,qty:o.qty,unit:o.unit})) }
-                : { enabled:false, items: [] }
-            },
-            interaction:{ intersect:false, mode:'nearest' },
-            elements:{ point:{ radius:0 } }
-          }
+            lineStyle: { color:'#94a3b8', width:1, type:'dashed' },
+            crossStyle:{ color:'#94a3b8' }
+          },
+          tooltip:{ trigger:'axis', order:'valueDesc', axisPointer:{ type:'cross' } },
+          legend:{
+            type:'scroll', top:4, left:8, padding:[0,0,8,0],
+            itemGap:14, pageIconColor:'#0ea5e9', pageTextStyle:{ color:'#334155' },
+            selector:[{type:'all', title:'Tümünü seç'},{type:'inverse', title:'Tersini seç'}],
+            textStyle:{ color:'#334155' }
+          },
+          toolbox:{ show:true, right:8, feature:{ saveAsImage:{}, dataZoom:{}, restore:{} } },
+          xAxis:{
+            type:'time',
+            min: minIso || undefined,
+            max: maxIso || undefined,
+            axisLabel:{ color:'#334155' },                  // X ekseni etiket yazı rengi
+            axisLine:{ lineStyle:{ color:'#cbd5e1' } },     // X ekseni çizgi rengi
+            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } } // X ekseni ızgara çizgi rengi
+          },
+          yAxis:{
+            type:'value',
+            scale:true,
+            axisLabel:{ color:'#334155' },                  // Y ekseni etiket yazı rengi
+            axisLine:{ lineStyle:{ color:'#cbd5e1' } },     // Y ekseni çizgi rengi
+            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } } // Y ekseni ızgara çizgi rengi
+          },
+          dataZoom:[
+            { type:'inside', xAxisIndex:0 },
+            {
+              type:'slider', xAxisIndex:0, height:18,
+              start:0, end:100, realtime:true,
+              textStyle:{ color:'#ffffff' }                  // slider altındaki tarih/saat yazı rengi
+              // backgroundColor:'rgba(2,6,23,0.25)',        // slider ray arkaplan rengi
+              // fillerColor:'rgba(14,165,233,0.25)'         // slider seçili alan dolgu rengi
+            }
+          ],
+          animationDuration:600,
+          stateAnimation:{ duration:200 },
+          series
         };
 
-        const chart=new Chart(canv.getContext('2d'), cfg);
-        chartInstances[dev.cihaz_id]={ chart, wrapper:wrap };
-      });
-      console.log('Grafik kurulum tamam. Cihaz:', Object.keys(chartInstances).length);
-    }
-  </script>
+        const ec = echarts.init(chartDiv, null, {renderer:'canvas'});
+        ec.setOption(option);
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      if (typeof Chart === 'undefined') { console.error('Chart.js yüklenemedi'); return; }
-      bootPlugins();
-      initDeviceFilter();
-      refreshDeviceChips(); // no-op
-      const chk=document.getElementById('opsToggle');
-      if(chk){ OPS_ENABLED = chk.checked; chk.addEventListener('change', ()=>{ OPS_ENABLED = chk.checked; buildCharts(); }); }
+        // dataZoom aralığını dışarı aktar (global değişken + event) ve paneli güncelle
+        (function attachZoomExport(){
+          const totalStart = (minIso ? Date.parse(minIso) : (devExt?.startTs ?? Date.now()-3600*1000));
+          const totalEnd   = (maxIso ? Date.parse(maxIso) : (devExt?.endTs   ?? Date.now()));
+          function pushZoom(payload){
+            const b = payload || {};
+            const startPct = typeof b.start === 'number' ? b.start : 0;
+            const endPct   = typeof b.end   === 'number' ? b.end   : 100;
+            let sTs = b.startValue ? Date.parse(String(b.startValue)) : (totalStart + (totalEnd-totalStart)*(startPct/100));
+            let eTs = b.endValue   ? Date.parse(String(b.endValue))   : (totalStart + (totalEnd-totalStart)*(endPct/100));
+            if(!Number.isFinite(sTs) || !Number.isFinite(eTs)) return;
+            setSideRange(sTs, eTs); // panel güncelle
+            const sIso = new Date(sTs).toISOString().slice(0,16);
+            const eIso = new Date(eTs).toISOString().slice(0,16);
+            window.ZOOM_RANGE = { startTs:sTs, endTs:eTs, startIso:sIso, endIso:eIso, startPct, endPct, deviceId: dev.cihaz_id };
+            // Cihaza özel son aralık
+            if(chartInstances[dev.cihaz_id]) chartInstances[dev.cihaz_id].lastRange = { startTs:sTs, endTs:eTs };
+            window.dispatchEvent(new CustomEvent('chartRangeChange', { detail: window.ZOOM_RANGE }));
+          }
+          ec.on('dataZoom', (evt)=>{
+            const first = (evt && evt.batch && evt.batch[0]) ? evt.batch[0] : evt || {};
+            pushZoom(first);
+          });
+          pushZoom({ start: option.dataZoom[1].start ?? 0, end: option.dataZoom[1].end ?? 100 });
+        })();
+
+        // Rapor butonları
+        btnSummary.addEventListener('click', ()=>{
+          const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
+          showDeviceReportSummary(dev, lr.startTs, lr.endTs);
+        });
+        btnDetail.addEventListener('click', ()=>{
+          const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
+          showDeviceReportDetailed(dev, lr.startTs, lr.endTs);
+        });
+
+        window.addEventListener('resize', ()=> ec.resize());
+        chartInstances[dev.cihaz_id] = {
+          chart: ec,
+          wrapper: wrap,
+          sideEl: side,
+          startEl: val1,
+          endEl: val2,
+          lastRange: { startTs: initialStart, endTs: initialEnd }
+        };
+      }); // devicesToShow.forEach sonu
+
+      // Tüm grafiklerde senkron zoom/tooltip
+      try{
+        const toConnect = Object.values(chartInstances).map(o=>o.chart);
+        if (toConnect.length > 1) echarts.connect(toConnect);
+      }catch(_){}
+
+      console.log('ECharts kurulum tamam. Cihaz:', Object.keys(chartInstances).length);
+    } // buildCharts sonu
+
+    // ---------- Raporlama yardımcıları ----------
+    function escapeHtml(x){ const d=document.createElement('div'); d.textContent=String(x??''); return d.innerHTML; }
+    function percentile(sortedNums, p){
+      if(!sortedNums.length) return NaN;
+      const pos = (p/100)*(sortedNums.length-1);
+      const base = Math.floor(pos), rest = pos-base;
+      if(sortedNums[base+1]!==undefined) return sortedNums[base] + rest*(sortedNums[base+1]-sortedNums[base]);
+      return sortedNums[base];
+    }
+    function computeSeriesStats(points){
+      // points: Array<[isoOrX, numberOrY]> veya {x, y}
+      const xs = (points||[]).map(p=>{
+        const t = Date.parse((p[0] ?? p.x ?? '').toString());
+        const y = Number(p[1] ?? p.y);
+        return { t, y };
+      }).filter(o=>Number.isFinite(o.t) && Number.isFinite(o.y));
+      const n = xs.length;
+      if(!n) return { n:0 };
+
+      xs.sort((a,b)=>a.t-b.t);
+      const ys = xs.map(o=>o.y).slice().sort((a,b)=>a-b);
+
+      let sum=0; for(const v of ys) sum+=v;
+      const mean = sum/n;
+      const median = percentile(ys, 50);
+      const p10 = percentile(ys, 10);
+      const p90 = percentile(ys, 90);
+      const min = ys[0], max = ys[n-1];
+      let varsum=0; for(const v of ys){ const d=v-mean; varsum+=d*d; }
+      const std = Math.sqrt(varsum/n);
+      const first = xs[0].y, last = xs[n-1].y, delta = last-first, absDelta = Math.abs(delta);
+
+      const dts=[]; for(let i=1;i<n;i++){ dts.push(xs[i].t - xs[i-1].t); }
+      dts.sort((a,b)=>a-b);
+      const medDt = dts.length ? dts[Math.floor(dts.length/2)] : NaN;
+      let gapCnt=0, gapTotal=0;
+      if(Number.isFinite(medDt) && medDt>0){
+        const thr = 2*medDt;
+        for(let i=1;i<n;i++){
+          const g = xs[i].t - xs[i-1].t;
+          if(g > thr){ gapCnt++; gapTotal += (g - medDt); }
+        }
+      }
+
+      // min/max zamanları bul
+      const minAt = xs.reduce((a,b)=> (b.y < a.y ? b:a), xs[0]).t;
+      const maxAt = xs.reduce((a,b)=> (b.y > a.y ? b:a), xs[0]).t;
+
+      return { n, min, max, mean, median, p10, p90, std, sum, first, last, delta, absDelta, minAt, maxAt, medDt, gapCnt, gapTotal };
+    }
+    function within(ts, s, e){ return ts>=s && ts<=e; }
+
+    // EKLENDİ: Hangi seri adlarının kalın gösterileceği
+    function isEmphSeries(name){
+      if(!name) return false;
+      const n = String(name).trim().toLowerCase();
+      return n==='toplam aktif güç' || n==='toplam reaktif güç' || n==='toplam görünür güç';
+    }
+
+    function showModal(title, htmlContent){
+      let overlay = document.createElement('div'); overlay.className='modal-overlay';
+      let modal = document.createElement('div'); modal.className='modal';
+      let header = document.createElement('header');
+      let h = document.createElement('h3'); h.textContent = title;
+      let x = document.createElement('button'); x.className='btn-close'; x.textContent='Kapat';
+      const close=()=>{ if(overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+      x.addEventListener('click', close);
+      header.append(h,x);
+      // FIX: content eksikti -> oluşturuldu
+      let content = document.createElement('div');
+      content.className = 'content';
+      content.innerHTML = htmlContent;
+      modal.append(header, content); overlay.appendChild(modal);
+      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+      document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ close(); document.removeEventListener('keydown', esc); }});
+      document.body.appendChild(overlay);
+    }
+
+    // YENİ: Özet rapor (güncellendi: unit ekle)
+    function showDeviceReportSummary(dev, startTs, endTs){
+      const rows = [];
+      (dev.series||[]).forEach(s=>{
+        const pts = (s.data||[]).filter(p=>{
+          const t = Date.parse((p[0] ?? p.x ?? '').toString());
+          return Number.isFinite(t) && within(t, startTs, endTs);
+        });
+        const st = computeSeriesStats(pts);
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+      });
+      const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)}</div>`;
+      function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
+      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-'); // sayı + birim
+      let html = `
+        ${head}
+        <table style="margin-top:8px">
+          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th></tr></thead>
+          <tbody>
+      `;
+      rows.forEach(r=>{
+        const s=r.stats, u=r.unit, nm=r.name || 'Seri';
+        const emph = isEmphSeries(nm);
+        html += `<tr${emph?' class="emph-row"':''}>
+          <td>${escapeHtml(nm)}</td>
+          <td>${withUnit(s.min,u)}</td>
+          <td>${withUnit(s.max,u)}</td>
+          <td>${withUnit(s.mean,u)}</td>
+          <td>${withUnit(s.delta,u)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+      showModal('Özet Rapor', html);
+    }
+
+    // DEĞİŞTİ: Detay rapor (mevcut içerik buraya taşındı)
+    function showDeviceReportDetailed(dev, startTs, endTs){
+      const rows = [];
+      let totalPoints=0;
+      (dev.series||[]).forEach(s=>{
+        const pts = (s.data||[]).filter(p=>{
+          const t = Date.parse((p[0] ?? p.x ?? '').toString());
+          return Number.isFinite(t) && within(t, startTs, endTs);
+        });
+        totalPoints += pts.length;
+        const st = computeSeriesStats(pts);
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+      });
+
+      const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)} — Nokta: ${totalPoints}</div>`;
+
+      if(totalPoints===0){
+        showModal('Detaylı Rapor', head + '<div style="margin-top:8px">Bu aralıkta veri bulunamadı.</div>');
+        return;
+      }
+
+      function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
+      function fmtDur(ms){ if(!Number.isFinite(ms) || ms<=0) return '-'; const s=Math.round(ms/1000); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60); return `${h}s ${String(m).padStart(2,'0')}dk`; }
+      function fmtDt(ts){ return fmtDisp(ts); }
+      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-'); // sayı + birim
+
+      let table = `
+        <table>
+          <thead>
+            <tr>
+              <th>Seri</th><th>Adet</th><th>Min</th><th>Min Zaman</th><th>Maks</th><th>Maks Zaman</th>
+              <th>Ortalama</th><th>Medyan</th><th>P10</th><th>P90</th><th>Std Sapma</th><th>Toplam</th>
+              <th>İlk</th><th>Son</th><th>Delta</th><th>Ör. Aralığı</th><th>Boşluk Sayısı</th><th>Boşluk Süresi</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      for(const r of rows){
+        const s = r.stats, u = r.unit, nm = r.name || 'Seri';
+        const emph = isEmphSeries(nm);
+        table += `
+          <tr${emph?' class="emph-row"':''}>
+            <td>${escapeHtml(nm)}</td>
+            <td>${s.n}</td>
+            <td>${withUnit(s.min,u)}</td>
+            <td>${fmtDt(s.minAt)}</td>
+            <td>${withUnit(s.max,u)}</td>
+            <td>${fmtDt(s.maxAt)}</td>
+            <td>${withUnit(s.mean,u)}</td>
+            <td>${withUnit(s.median,u)}</td>
+            <td>${withUnit(s.p10,u)}</td>
+            <td>${withUnit(s.p90,u)}</td>
+            <td>${withUnit(s.std,u)}</td>
+            <td>${withUnit(s.sum,u)}</td>
+            <td>${withUnit(s.first,u)}</td>
+            <td>${withUnit(s.last,u)}</td>
+            <td>${withUnit(s.delta,u)}</td>
+            <td>${Number.isFinite(s.medDt)? (Math.round(s.medDt/1000)+' sn'): '-'}</td>
+            <td>${s.gapCnt ?? 0}</td>
+            <td>${fmtDur(s.gapTotal)}</td>
+          </tr>
+        `;
+      }
+      table += '</tbody></table>';
+
+      const tips = `<div class="muted" style="margin-top:8px">Not: Değer sütunlarındaki birimler cihaz_adresleri.unit kaynağından eklenmiştir.</div>`;
+
+      showModal('Detaylı Rapor', head + table + tips);
+    }
+
+    // Başlat
+    document.getElementById('opsToggle')?.addEventListener('change', (e)=>{
+      OPS_ENABLED = !!e.target.checked;
       buildCharts();
     });
-  </script>
-  <script src="assets/app.js"></script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      initDeviceFilter();
+      buildCharts();
+    });
+</script>
 </body>
 </html>
