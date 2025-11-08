@@ -1,0 +1,6 @@
+﻿Toplam dosya: 35
+Referans edilen dosya: 8
+Aday (orphans): 17
+Yedek/çöp: 1
+Büyük (>20 MB): 0
+İkiz gruplar: 0
