@@ -598,6 +598,32 @@ $genMs = round((microtime(true)-$started)*1000,2);
     .chart-side .label{ font-size:11px; color:#64748b; }
     .chart-side .value{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
 
+    /* EKLENDİ: Seri görünürlük kutuları için stil */
+    .chart-side .series-toggles{
+      max-height:150px;           /* Sabit yükseklik */
+      overflow-y:auto;
+      overflow-x:hidden;
+      border:1px solid #e5e7eb;
+      border-radius:6px;
+      padding:6px 8px;
+      background:#f8fafc;
+      scrollbar-width: thin;
+    }
+    .chart-side .series-toggles::-webkit-scrollbar{
+      width:8px;
+    }
+    .chart-side .series-toggles::-webkit-scrollbar-track{
+      background:#f1f5f9;
+      border-radius:6px;
+    }
+    .chart-side .series-toggles::-webkit-scrollbar-thumb{
+      background:#94a3b8;
+      border-radius:6px;
+    }
+    .chart-side .series-toggles::-webkit-scrollbar-thumb:hover{
+      background:#64748b;
+    }
+
     /* RAPOR MODAL */
     .modal-overlay{
       position:fixed; inset:0; background:rgba(15,23,42,0.45);
@@ -967,13 +993,78 @@ $genMs = round((microtime(true)-$started)*1000,2);
       return items;
     }
 
-    // Operasyon alanları -> ECharts markArea + markLine
+    // EKLENDİ: Tarife bantları (Gündüz 06-17, Puant 17-22, Gece 22-06)
+    function buildTariffAreas(startIso, endIso){
+      const areas = [];
+      const s = new Date(startIso.replace(' ','T'));
+      const e = new Date(endIso.replace(' ','T'));
+      if(!(s instanceof Date) || !(e instanceof Date) || isNaN(+s) || isNaN(+e) || e<=s) return areas;
+
+      const pad=n=>String(n).padStart(2,'0');
+      const localIso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      const at = (d,h,m) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
+      const clampPush = (a,b,label,fill,labelBg)=>{
+        const aa = Math.max(+a, +s), bb = Math.min(+b, +e);
+        if(bb>aa){
+          areas.push([
+            {
+              xAxis: localIso(new Date(aa)),
+              label:{
+                show:true, formatter: label, color:'#fff',
+                backgroundColor: labelBg, padding:[2,4], borderRadius:3, fontSize:10, lineHeight:12
+              },
+              itemStyle:{ color: fill }
+            },
+            { xAxis: localIso(new Date(bb)) }
+          ]);
+        }
+      };
+
+      const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      for(let d=new Date(d0); d<=e; d.setDate(d.getDate()+1)){
+        const dayStart  = at(d, 6, 0), dayEnd  = at(d,17,0);                       // Gündüz
+        const peakStart = at(d,17,0), peakEnd = at(d,22,0);                         // Puant
+        const nightStart= at(d,22,0), nightEnd= at(new Date(d.getFullYear(), d.getMonth(), d.getDate()+1), 6,0); // Gece
+        clampPush(dayStart,  dayEnd,  'Gündüz', 'rgba(250,204,21,0.12)',  'rgba(234,179,8,0.85)');
+        clampPush(peakStart, peakEnd, 'Puant',  'rgba(59,130,246,0.12)',  'rgba(37,99,235,0.85)');
+        clampPush(nightStart,nightEnd,'Gece',   'rgba(2,6,23,0.14)',      'rgba(2,6,23,0.85)');
+      }
+      return areas;
+    }
+
+    // Operasyon alanları -> ECharts markArea + markLine (GÜNCELLENDİ: ad ve miktar etiketli)
     function buildOpAreas(ops){
       const areas = [];
       const lines = [];
       (ops||[]).forEach(o=>{
         if(!o.start || !o.end) return;
-        areas.push([{ xAxis:o.start }, { xAxis:o.end }]);
+        const name = (o.name || '').trim();
+        const qtyStr = (o.qty !== null && o.qty !== undefined && o.qty !== '') ? (o.qty + (o.unit ? ' '+o.unit : '')) : '';
+        // Etiket içeriği
+        let labelTxt = name || 'Operasyon';
+        if(qtyStr) labelTxt += '\n' + qtyStr;
+        // Çok uzun ise kısalt
+        if(labelTxt.length > 28){
+          labelTxt = labelTxt.slice(0,25)+'…';
+        }
+        areas.push([
+          {
+            xAxis: o.start,
+            // Her alanın kendi label'ı
+            label:{
+              show:true,
+              formatter: labelTxt,
+              color:'#ffffff',
+              backgroundColor:'rgba(14,201,176,0.70)',
+              padding:[3,5],
+              borderRadius:4,
+              lineHeight:14,
+              fontSize:11
+            }
+          },
+          { xAxis: o.end }
+        ]);
+        // Başlangıç ve bitiş çizgileri (istersen kaldırabilirsin)
         lines.push({ xAxis:o.start }, { xAxis:o.end });
       });
       return { areas, lines };
@@ -985,26 +1076,41 @@ $genMs = round((microtime(true)-$started)*1000,2);
     // ECharts ile grafik kur
     function buildCharts(){
       const container=document.getElementById('charts'); if(!container) return;
-      // Eski chartları temizle
-      Object.values(chartInstances).forEach(({chart})=>{ try{ chart.dispose(); }catch(e){} });
-      chartInstances={}; container.innerHTML='';
 
-      const ids=new Set(selectedDeviceIds());
-      const minIso = USE_DATE_FILTER ? RANGE_START_ISO.replace(' ','T') : null;
-      const maxIso = USE_DATE_FILTER ? RANGE_END_ISO.replace(' ','T') : null;
+      // Temizle (yeniden kurulum)
+      container.innerHTML = '';
+      chartInstances = {};
 
-      const devicesToShow = (DEVICES||[]).filter(d=>ids.has(d.cihaz_id));
-      if(devicesToShow.length===0){
-        container.innerHTML = '<div class="panel">Seçili cihaz yok veya veri bulunamadı.</div>';
+      // Seçili cihazlar
+      const ids = selectedDeviceIds();
+      const devicesToShow = (DEVICES||[]).filter(d=> ids.includes(d.cihaz_id));
+      if(!devicesToShow.length){
+        console.warn('Seçili cihaz bulunamadı.');
         return;
       }
+
+      // MERKEZİ RENKLER (EKLENDİ / varsa sabit kalsın)
+      const CHART_COLORS = (typeof window!=='undefined' && window.CHART_COLORS) || {
+        text: '#777a80ff',
+        legendText: '#878a91ff',
+        axisLine: '#475569',
+        gridLine: 'rgba(71,85,105,0.25)',
+        zoomText: '#0f172a',
+        pointerLine: '#475569',
+        pointerBg: '#0f172a',
+        pointerFg: '#ffffff'
+      };
+
+      // Global aralık (minIso / maxIso eksikse doldur)
+      const minIso = RANGE_START_ISO.replace(' ','T');
+      const maxIso = RANGE_END_ISO.replace(' ','T');
 
       devicesToShow.forEach(dev=>{
         // Başlık
         const title = document.createElement('div');
         title.textContent = dev.label || ('Cihaz ' + dev.cihaz_id);
         title.style.fontSize='12px';
-        title.style.color='#334155';
+        title.style.color = CHART_COLORS.text; // DEĞİŞTİ
         title.style.margin='6px 0';
 
         // Satır: Grafik + yan panel
@@ -1039,7 +1145,62 @@ $genMs = round((microtime(true)-$started)*1000,2);
         btnDetail.textContent='Detaylı Rapor';
         grp2.append(btnSummary, btnDetail);
 
-        side.append(grp1, grp2);
+        // EKLENDİ: Seri görünürlük kutuları (yalnızca ham veri serileri)
+        const grp3 = document.createElement('div');
+        grp3.className = 'group';
+        const togTitle = document.createElement('div');
+        togTitle.textContent = 'Seriler';
+        togTitle.style.fontSize='11px';
+        togTitle.style.fontWeight='600';
+        togTitle.style.color='#0f172a';
+        togTitle.style.marginBottom='4px';
+        grp3.appendChild(togTitle);
+
+        // EKLENDİ: Scroll kutusu
+        const scrollBox = document.createElement('div');
+        scrollBox.className = 'series-toggles';
+
+        const seriesToggleDefs = [];
+        const primaryMatch = 'toplam aktif gü'; // Başlangıcı bu olan seri seçilecek
+        let foundPrimary = false;
+
+        (dev.series||[]).forEach((s, idx)=>{
+          const nm = s.name || ('Seri '+(idx+1));
+          const lower = nm.toLowerCase();
+          const isPrimary = lower.startsWith(primaryMatch);
+          if(isPrimary) foundPrimary = true;
+
+          const rowTog = document.createElement('label');
+          rowTog.style.display='flex';
+          rowTog.style.alignItems='center';
+          rowTog.style.gap='6px';
+          rowTog.style.fontSize='11px';
+          rowTog.style.cursor='pointer';
+          rowTog.style.userSelect='none';
+          rowTog.style.padding='2px 0';
+
+          const cb = document.createElement('input');
+          cb.type='checkbox';
+          cb.checked = isPrimary;              // DEĞİŞTİ: Sadece hedef seri açık
+          cb.style.margin='0';
+          cb.style.width='14px';
+          cb.style.height='14px';
+          cb.style.accentColor='#0ea5e9';
+
+          const txt = document.createElement('span');
+          txt.textContent = nm;
+          rowTog.append(cb, txt);
+          scrollBox.appendChild(rowTog);
+          seriesToggleDefs.push({ name: nm, input: cb });
+        });
+
+        // Hedef seri yoksa ilk seriyi aç
+        if(!foundPrimary && seriesToggleDefs.length){
+          seriesToggleDefs[0].input.checked = true;
+        }
+
+        grp3.appendChild(scrollBox);
+        side.append(grp1, grp2, grp3); // DEĞİŞTİ: scrollBox eklendi
 
         row.appendChild(wrap);
         row.appendChild(side);
@@ -1098,18 +1259,39 @@ $genMs = round((microtime(true)-$started)*1000,2);
         });
 
         // Gece bantları
-        const nightAreas = buildNightAreas(RANGE_START_ISO, RANGE_END_ISO);
-        if(nightAreas.length){
+        // const nightAreas = buildNightAreas(RANGE_START_ISO, RANGE_END_ISO);
+        // if(nightAreas.length){
+        //   series.push({
+        //     name:'Gece',
+        //     type:'line',
+        //     data:[],
+        //     silent:true,
+        //     markArea:{
+        //       label:{ show:false },
+        //       itemStyle:{ color:'rgba(45,62,80,0.16)' },
+        //       data: nightAreas
+        //     }
+        //   });
+        // }
+
+        // EKLENDİ: Tarife bantları (Gündüz/Puant/Gece)
+        const tariffAreas = buildTariffAreas(RANGE_START_ISO, RANGE_END_ISO);
+        if(tariffAreas.length){
           series.push({
-            name:'Gece',
+            name:'Tarife',
             type:'line',
             data:[],
             silent:true,
-            markArea:{ itemStyle:{ color:'rgba(45,62,80,0.16)' }, data: nightAreas } // gece saatleri alan dolgu rengi
+            markArea:{
+              z: 2,
+              label:{ show:false },                // etiketler tek tek area üzerinde
+              itemStyle:{ color:'rgba(148,163,184,0.10)' }, // varsayılan (area bazında override ediliyor)
+              data: tariffAreas
+            }
           });
         }
 
-        // Operasyon overlay
+        // Operasyon overlay (GÜNCELLENDİ)
         if(OPS_ENABLED && OPS_CACHE.length){
           const {areas, lines} = buildOpAreas(OPS_CACHE);
           series.push({
@@ -1117,63 +1299,105 @@ $genMs = round((microtime(true)-$started)*1000,2);
             type:'line',
             data:[],
             silent:true,
-            markArea:{ itemStyle:{ color:'rgba(20,201,176,0.16)' }, data: areas }, // operasyon aralığı dolgu rengi
+            markArea:{
+              z: 5,
+              label:{ show:false }, // Alan içi label'ları tek tek tanımladık
+              itemStyle:{ color:'rgba(20,201,176,0.18)' },
+              data: areas
+            },
             markLine:{
+              z: 6,
               symbol:'none',
-              lineStyle:{ color:'rgba(200,0,0,0.7)', width:1 }, // operasyon düşey çizgi rengi/kalınlığı
+              label:{ show:false },
+              lineStyle:{ color:'#14c9b0', width:1.2, type:'solid' },
               data: lines
             }
           });
         }
 
+        // Y ekseni etiketleri uzun ise sol boşluğu dinamik ayarla
+        function calcLeftPad(){
+          let maxAbs = 0; let hasNeg = false;
+          (dev.series||[]).forEach(s=>{
+            (s.data||[]).forEach(p=>{
+              const y = Number(p.y ?? p[1]);
+              if(Number.isFinite(y)){
+                const a = Math.abs(y);
+                if(a > maxAbs) maxAbs = a;
+                if(y < 0) hasNeg = true;
+              }
+            });
+          });
+          const digits = maxAbs > 0 ? Math.floor(Math.log10(maxAbs)) + 1 : 1;
+          const charW = 7.2;  // 11px font için yaklaşık karakter genişliği
+          const extra = 24;   // iç boşluk payı
+          const signW = hasNeg ? 8 : 0;
+          return Math.max(56, Math.min(160, Math.ceil(digits * charW + extra + signW)));
+        }
+        const leftPad = calcLeftPad();
+
         const option = {
           color: palette,
-          grid:{ left:48, right:18, top:72, bottom:44 },
+          grid:{ left:leftPad, right:18, top:72, bottom:44 },
           axisPointer:{
             link: [{ xAxisIndex: 'all' }],
             label: {
               show: true,
-              backgroundColor: 'rgba(2,6,23,0.92)', // eksen işaretçisi etiketi arkaplan rengi
-              color: '#ffffff',                      // eksen işaretçisi etiketi yazı rengi
-              borderColor: 'rgba(148,163,184,0.35)', // eksen işaretçisi etiketi kenarlık rengi
+              backgroundColor: CHART_COLORS.pointerBg,   // GÜNCELLENDİ
+              color: CHART_COLORS.pointerFg,              // GÜNCELLENDİ
+              borderColor: '#1e293b',                    // GÜNCELLENDİ
               borderWidth: 1,
               padding: [4,6],
-              shadowBlur: 0
+              shadowBlur: 0,
+              formatter: (params)=>{
+                const v = params.value;
+                const t = typeof v === 'number' ? new Date(v) : new Date(v);
+                if(!Number.isFinite(+t)) return '';
+                const z = n=>String(n).padStart(2,'0');
+                return `${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())} ${z(t.getHours())}:${z(t.getMinutes())}`;
+              }
             },
-            lineStyle: { color:'#94a3b8', width:1, type:'dashed' },
-            crossStyle:{ color:'#94a3b8' }
+            lineStyle: { color: CHART_COLORS.pointerLine, width:1, type:'dashed' }, // GÜNCELLENDİ
+            crossStyle:{ color: CHART_COLORS.pointerLine }                           // GÜNCELLENDİ
           },
           tooltip:{ trigger:'axis', order:'valueDesc', axisPointer:{ type:'cross' } },
           legend:{
-            type:'scroll', top:4, left:8, padding:[0,0,8,0],
-            itemGap:14, pageIconColor:'#0ea5e9', pageTextStyle:{ color:'#334155' },
-            selector:[{type:'all', title:'Tümünü seç'},{type:'inverse', title:'Tersini seç'}],
-            textStyle:{ color:'#334155' }
+            type:'scroll',
+            top: 4,
+            left: 8,
+            padding: [0,0,8,0],
+            itemGap: 14,
+            pageIconColor:'#0ea5e9',
+            pageTextStyle:{ color: CHART_COLORS.legendText }, // GÜNCELLENDİ
+            selector:[
+              {type:'all', title:'Tümünü seç'},
+              {type:'inverse', title:'Tersini seç'}
+            ],
+            textStyle:{ color: CHART_COLORS.legendText }       // GÜNCELLENDİ
           },
           toolbox:{ show:true, right:8, feature:{ saveAsImage:{}, dataZoom:{}, restore:{} } },
           xAxis:{
             type:'time',
             min: minIso || undefined,
             max: maxIso || undefined,
-            axisLabel:{ color:'#334155' },                  // X ekseni etiket yazı rengi
-            axisLine:{ lineStyle:{ color:'#cbd5e1' } },     // X ekseni çizgi rengi
-            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } } // X ekseni ızgara çizgi rengi
+            axisLabel:{ color: CHART_COLORS.text },                 // GÜNCELLENDİ
+            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }}, // GÜNCELLENDİ
+            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }} // GÜNCELLENDİ
           },
           yAxis:{
             type:'value',
             scale:true,
-            axisLabel:{ color:'#334155' },                  // Y ekseni etiket yazı rengi
-            axisLine:{ lineStyle:{ color:'#cbd5e1' } },     // Y ekseni çizgi rengi
-            splitLine:{ lineStyle:{ color:'rgba(148,163,184,0.25)' } } // Y ekseni ızgara çizgi rengi
+            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 }, // GÜNCELLENDİ
+            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
+            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
           },
           dataZoom:[
             { type:'inside', xAxisIndex:0 },
             {
               type:'slider', xAxisIndex:0, height:18,
               start:0, end:100, realtime:true,
-              textStyle:{ color:'#ffffff' }                  // slider altındaki tarih/saat yazı rengi
-              // backgroundColor:'rgba(2,6,23,0.25)',        // slider ray arkaplan rengi
-              // fillerColor:'rgba(14,165,233,0.25)'         // slider seçili alan dolgu rengi
+              showDetail: true,
+              textStyle:{ color: CHART_COLORS.zoomText }           // GÜNCELLENDİ
             }
           ],
           animationDuration:600,
@@ -1183,6 +1407,22 @@ $genMs = round((microtime(true)-$started)*1000,2);
 
         const ec = echarts.init(chartDiv, null, {renderer:'canvas'});
         ec.setOption(option);
+
+        // EKLENDİ: Checkbox değişiminde legend.selected güncelle
+        function applySeriesVisibility(){
+          const selected = {};
+          // Toggle'ı olmayan (Gece/Operasyon gibi) seriler açık kalsın
+          series.forEach(sObj=>{
+            const def = seriesToggleDefs.find(d=>d.name===sObj.name);
+            selected[sObj.name] = def ? !!def.input.checked : true;
+          });
+          ec.setOption({ legend: { selected } });
+        }
+        seriesToggleDefs.forEach(def=>{
+          def.input.addEventListener('change', applySeriesVisibility);
+        });
+        // İlk durum
+        applySeriesVisibility();
 
         // dataZoom aralığını dışarı aktar (global değişken + event) ve paneli güncelle
         (function attachZoomExport(){
@@ -1231,13 +1471,13 @@ $genMs = round((microtime(true)-$started)*1000,2);
         };
       }); // devicesToShow.forEach sonu
 
-      // Tüm grafiklerde senkron zoom/tooltip
+      // Senkron bağlama
       try{
         const toConnect = Object.values(chartInstances).map(o=>o.chart);
         if (toConnect.length > 1) echarts.connect(toConnect);
-      }catch(_){}
+      }catch(e){ console.warn('Connect hatası', e); }
 
-      console.log('ECharts kurulum tamam. Cihaz:', Object.keys(chartInstances).length);
+      console.log('ECharts kurulum tamam. Grafik sayısı:', Object.keys(chartInstances).length);
     } // buildCharts sonu
 
     // ---------- Raporlama yardımcıları ----------
@@ -1298,6 +1538,8 @@ $genMs = round((microtime(true)-$started)*1000,2);
       const n = String(name).trim().toLowerCase();
       return n==='toplam aktif güç' || n==='toplam reaktif güç' || n==='toplam görünür güç';
     }
+
+
 
     function showModal(title, htmlContent){
       let overlay = document.createElement('div'); overlay.className='modal-overlay';

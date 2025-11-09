@@ -93,7 +93,7 @@ else {
               'cihaz_adi'=>(string)($g['cihaz_adi']??''),
               'konum'=>(string)($g['konum']??''),
               'last_seen_ts'=>$ts?:0,
-              'last_seen'>(string)($g['kayit_zamani']??''),
+              'last_seen' => (string)($g['kayit_zamani'] ?? ''), // FIX: => kullan
               'addr_count'=>1,
               'marka'=>null,'model'=>null,'seri_no'=>null,'ip'=>null
             ];
@@ -155,6 +155,37 @@ foreach($gauges as $g){
     }
   } unset($t);
 }
+// EKLENDİ: Cihaz bazında Görünür Güç toplamları
+$sPerDevice = [];
+foreach($gauges as $g){
+  $nm = mb_strtolower((string)($g['adres_ad']??''),'UTF-8');
+  if($nm === 'toplam görünür güç'){
+    $cid = (int)$g['cihaz_id'];
+    $sPerDevice[$cid] = ($sPerDevice[$cid] ?? 0) + (float)$g['deger'];
+  }
+}
+$sByDevice = [];
+foreach($sPerDevice as $cid=>$sum){
+  $konum = (string)($devicesSummary[$cid]['konum'] ?? '');
+  $cadi  = (string)($devicesSummary[$cid]['cihaz_adi'] ?? '');
+  $label = trim(($konum!==''?$konum:'-').' • '.($cadi!==''?$cadi:('Cihaz '.$cid))." (ID: $cid)");
+  $sByDevice[] = ['cid'=>$cid,'name'=>$label,'value'=>$sum];
+}
+// Büyükten küçüğe sırala
+usort($sByDevice, function($a,$b){ return $b['value'] <=> $a['value']; });
+
+// Konuma göre Görünür Güç toplamları
+$locTotals = [];
+foreach($gauges as $g){
+  $nm = mb_strtolower((string)($g['adres_ad']??''),'UTF-8');
+  if($nm === 'toplam görünür güç'){
+    $loc = (string)($g['konum'] ?? '-');
+    $locTotals[$loc] = ($locTotals[$loc] ?? 0) + (float)$g['deger'];
+  }
+}
+arsort($locTotals);
+$locNames = array_keys($locTotals);
+$locValues = array_values($locTotals);
 
 ?><!DOCTYPE html>
 <html lang="tr">
@@ -192,6 +223,33 @@ foreach($gauges as $g){
     /* KPI chip */
     .kpi-chip .val{font-size:20px;font-weight:700;letter-spacing:.4px;display:flex;align-items:baseline;gap:6px;color:#e8f1fb;margin-top:2px}
     .kpi-chip .sub{font-size:10px;opacity:.6;margin-top:2px}
+
+    /* Grafik chip’leri */
+    .chart-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 1 420px}
+    .chart-chip .t{margin:2px 0 10px;font-size:12px;font-weight:600}
+    .chart-box{
+      width:360px;
+      height:360px;
+      max-width:100%;
+    }
+    @media (max-width:1100px){
+      .anlzr-bar.charts-bar .chart-left,
+      .anlzr-bar.charts-bar .chart-mid{
+        flex:0 0 320px;
+      }
+    }
+    @media (max-width:900px){
+      .anlzr-bar.charts-bar .chart-left,
+      .anlzr-bar.charts-bar .chart-mid,
+      .anlzr-bar.charts-bar .chart-wide{
+        flex:1 1 100%;
+      }
+      .anlzr-bar.charts-bar .chart-box{width:100%;height:300px}
+    }
+    @media (max-width:640px){
+      .chart-chip{flex:0 1 280px}
+      .chart-box{width:240px;height:240px}
+    }
     /* Durum pill */
     .status-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border-radius:9999px;font-size:10px;font-weight:600;border:1px solid transparent}
     .status-pill .dot{width:7px;height:7px;border-radius:50%}
@@ -215,7 +273,98 @@ foreach($gauges as $g){
     .filter-row{display:flex;gap:8px;align-items:center;padding:8px 10px;background:rgba(255,255,255,.04);border-bottom:1px solid #203448}
     .filter-row input{padding:7px 10px;border-radius:10px;border:1px solid #2c445c;background:#13293c;color:#e8f1fb;font-size:12px;min-width:260px}
     .filter-row input:focus{outline:2px solid #3d8bff}
-    @media (max-width:640px){main{padding:18px 16px}}
+
+    .anlzr-bar.charts-bar{justify-content:flex-start !important}
+
+    /* Soldaki iki grafik sabit genişlik */
+    .anlzr-bar.charts-bar .chart-left,
+    .anlzr-bar.charts-bar .chart-mid{
+      flex:0 0 380px;
+      max-width:380px;          /* EKLENDİ: sabitle */
+    }
+    /* EKLENDİ: Yer tutucu da aynı hizada */
+    .anlzr-bar.charts-bar .chart-ph{
+      flex:0 0 380px;
+      max-width:380px;
+    }
+
+    /* Sağdaki grafik tüm boşluğu alsın */
+    .anlzr-bar.charts-bar .chart-wide{
+      flex:1 1 auto;
+      min-width:420px;
+      max-width:none;            /* ÖNEMLİ: 280px sınırını kaldır */
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* İçteki kutu tam genişlik */
+    .anlzr-bar.charts-bar .chart-wide .chart-box{
+      width:100%;
+      height:420px;
+      max-width:100%;
+    }
+
+    /* Genel .anlzr-chip max-width’i bu şeritte kaldır (genişlemesi gerekirse) */
+    .anlzr-bar.charts-bar .anlzr-chip{max-width:none}
+
+    /* Responsive uyarlamalar */
+    @media (max-width:1100px){
+      .anlzr-bar.charts-bar .chart-left,
+      .anlzr-bar.charts-bar .chart-mid{
+        flex:0 0 320px;
+        max-width:320px;
+      }
+    }
+    @media (max-width:900px){
+      .anlzr-bar.charts-bar .chart-left,
+      .anlzr-bar.charts-bar .chart-mid,
+      .anlzr-bar.charts-bar .chart-wide{
+        flex:1 1 100%;
+        min-width:0;
+      }
+      .anlzr-bar.charts-bar .chart-box{width:100%;height:300px}
+    }
+
+    /* ÜST ŞERİT: 3 donut sabit genişlikte yan yana */
+    .anlzr-bar.charts-bar-top{justify-content:flex-start !important}
+    .anlzr-bar.charts-bar-top .anlzr-chip{flex:0 0 360px;max-width:360px}
+    @media (max-width:1100px){
+      .anlzr-bar.charts-bar-top .anlzr-chip{flex:0 0 320px;max-width:320px}
+    }
+    @media (max-width:900px){
+      .anlzr-bar.charts-bar-top .anlzr-chip{flex:1 1 100%;max-width:none}
+      .anlzr-bar.charts-bar-top .chart-box{width:100%;height:300px}
+    }
+
+    /* ALT ŞERİT: Bar grafik tam genişlik */
+    .anlzr-bar.charts-bar-bottom{justify-content:flex-start !important}
+    .anlzr-bar.charts-bar-bottom .anlzr-chip{flex:1 1 100%;max-width:none}
+    .anlzr-bar.charts-bar-bottom .chart-box{width:100%;height:420px;max-width:100%}
+    @media (max-width:900px){
+      .anlzr-bar.charts-bar-bottom .chart-box{height:300px}
+    }
+
+    /* filepath: c:\wamp64\www\enerji\index.php */
+    /* ÜST ŞERİT: tüm donutlar eşit esnesin */
+    .anlzr-bar.charts-bar-top{
+      justify-content:space-between !important;
+      gap: 10px;                 /* aralığı artır/azalt: 6-16 arası deneyebilirsin */
+    }
+    .anlzr-bar.charts-bar-top .chart-box{
+      max-width: 420px;          /* donut çapını büyüt/küçült (ör. 360/420/480) */
+      aspect-ratio: 1;
+    }
+    @media (max-width:900px){
+      .anlzr-bar.charts-bar-top .anlzr-chip{
+        flex:1 1 100%;
+      }
+      .anlzr-bar.charts-bar-top .chart-box{
+        max-width:none;
+        aspect-ratio:1;
+      }
+    }
   </style>
 </head>
 <body>
@@ -267,7 +416,7 @@ foreach ($navCandidates as $nav) {
         <?= (int)$onlineCount ?> / <?= (int)$deviceCount ?>
         <span class="status-pill <?= $onlineCount>0 ? 'status-online':'status-offline' ?>"><span class="dot"></span><?= $onlineCount>0?'Online':'Offline' ?></span>
       </div>
-      <div class="sub">Son değerlerin toplamı</div>
+      <div class="sub">Son 1 saatte veri gelen cihaz</div>
     </div>
     <div class="anlzr-chip kpi-chip">
       <div class="t"><?= h($kpiTotals['p']['name']) ?></div>
@@ -283,6 +432,29 @@ foreach ($navCandidates as $nav) {
       <div class="t"><?= h($kpiTotals['s']['name']) ?></div>
       <div class="val"><?= fmt_num((float)$kpiTotals['s']['sum'],2) ?> <span class="g-unit"><?= h($kpiTotals['s']['unit'] ?? '') ?></span></div>
       <div class="sub">Son değerlerin toplamı</div>
+    </div>
+  </div>
+
+  <!-- YENİ: Grafik Şeritleri -->
+  <div class="anlzr-bar charts-bar-top" title="Grafikler">
+    <div class="anlzr-chip chart-chip">
+      <div class="t">Cihaz Online / Offline</div>
+      <div id="chartDeviceStatus" class="chart-box"></div>
+    </div>
+    <div class="anlzr-chip chart-chip">
+      <div class="t">Analizörlere Göre Görünür Güç</div>
+      <div id="chartPowerMix" class="chart-box"></div>
+    </div>
+    <div class="anlzr-chip chart-chip">
+      <div class="t">Yer Tutucu (Örnek)</div>
+      <div id="chartPlaceholder" class="chart-box"></div>
+    </div>
+  </div>
+
+  <div class="anlzr-bar charts-bar-bottom" title="Grafikler">
+    <div class="anlzr-chip chart-chip">
+      <div class="t">Konuma Göre Görünür Güç</div>
+      <div id="chartByLocation" class="chart-box"></div>
     </div>
   </div>
 
@@ -339,12 +511,16 @@ foreach ($navCandidates as $nav) {
 
 </main>
 
+<!-- JS: tek blok (Chart.js kaldırıldı, ECharts kullanılıyor) -->
 <script>
-// Tüm şeritlerde: tek satıra sığıyorsa iki yana, sığmıyorsa ortala
 (function(){
   function layoutBars(){
     const bars = document.querySelectorAll('.anlzr-bar');
     bars.forEach(bar=>{
+      if(bar.classList.contains('charts-bar-top') || bar.classList.contains('charts-bar-bottom')){
+        bar.classList.remove('justify-between');
+        return;
+      }
       const items = Array.from(bar.children).filter(el=>el.classList.contains('anlzr-chip'));
       if(items.length===0){ bar.classList.remove('justify-between'); return; }
       const cs=getComputedStyle(bar);
@@ -360,7 +536,6 @@ foreach ($navCandidates as $nav) {
   layoutBars();
 })();
 
-// Tablo filtre
 (function(){
   const input=document.getElementById('measureFilter');
   const tbody=document.querySelector('#measureTable tbody');
@@ -373,6 +548,148 @@ foreach ($navCandidates as $nav) {
     }
   });
 })();
+
+// ECharts yükle (önce yerel, yoksa CDN)
+(function loadEcharts(){
+  if(window.echarts){ initEcharts(); return; }
+  const localPaths = [
+    'assets/echarts.min.js',
+    'assets/js/echarts.min.js',
+    'vendor/echarts/echarts.min.js'
+  ];
+  (function tryLoad(i){
+    if(i >= localPaths.length){
+      const cdn = document.createElement('script');
+      cdn.src = 'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js';
+      cdn.onload = initEcharts;
+      document.head.appendChild(cdn);
+      return;
+    }
+    const s=document.createElement('script');
+    s.src=localPaths[i];
+    s.onload=initEcharts;
+    s.onerror=()=>tryLoad(i+1);
+    document.head.appendChild(s);
+  })(0);
+})();
+
+function initEcharts(){
+  if(!window.echarts) return;
+
+  const onlineCount = <?= (int)$onlineCount ?>;
+  const deviceCount = <?= (int)$deviceCount ?>;
+  const offlineCount = Math.max(0, deviceCount - onlineCount);
+
+  // EKLENDİ: cihaz bazında görünür güçler
+  const sByDevice = <?= json_encode($sByDevice, JSON_UNESCAPED_UNICODE) ?>;
+
+  const textColor = '#e8f1fb';
+
+  // Online / Offline (değişmedi)
+  const elStatus = document.getElementById('chartDeviceStatus');
+  if(elStatus){
+    const c = echarts.init(elStatus);
+    c.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger:'item' },
+      legend: { bottom: 0, textStyle:{ color:textColor } },
+      series: [{
+        name:'Cihaz Durumu',
+        type:'pie',
+        radius:['55%','80%'],
+        label:{ color:textColor, formatter:'{b}\n{c}' },
+        data:[
+          {value:onlineCount,  name:'Online',  itemStyle:{color:'#34d399'}},
+          {value:offlineCount, name:'Offline', itemStyle:{color:'#ef4444'}}
+        ]
+      }]
+    });
+    window.addEventListener('resize', ()=>c.resize());
+  }
+
+  // Güç Dağılımı
+  const elMix = document.getElementById('chartPowerMix');
+  if(elMix){
+    const c = echarts.init(elMix);
+    c.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger:'item', formatter: p => `${p.name}: ${p.value} (${p.percent}%)` },
+      legend: {
+        type:'scroll',
+        bottom: 0,
+        textStyle:{ color:textColor }
+      },
+      series: [{
+        name:'Görünür Güç',
+        type:'pie',
+        radius:['55%','80%'],
+        label:{ show:false, color:textColor },      // kalabalıkta etiketleri gizle
+        labelLine:{ show:false },
+        data: sByDevice
+      }]
+    });
+    window.addEventListener('resize', ()=>c.resize());
+  }
+
+  // EKLENDİ: Konuma göre görünür güç
+  const elLoc = document.getElementById('chartByLocation');
+  if(elLoc){
+    const names = <?= json_encode($locNames, JSON_UNESCAPED_UNICODE) ?>;
+    const vals  = <?= json_encode($locValues) ?>;
+    const c = echarts.init(elLoc);
+    c.setOption({
+      backgroundColor:'transparent',
+      tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' } },
+      grid:{ left: 10, right: 10, top: 10, bottom: 30, containLabel: true },
+      xAxis:{ type:'value', axisLabel:{ color:'#9dc7ee' }, splitLine:{ lineStyle:{ color:'#203448' } } },
+      yAxis:{ type:'category', data:names, axisLabel:{ color:'#9dc7ee' } },
+      series:[{
+        type:'bar',
+        data: vals,
+        barWidth: 14,
+        itemStyle:{ color:'#22c55e' }
+      }]
+    });
+    window.addEventListener('resize', ()=>c.resize());
+  }
+
+  // EKLENDİ: Yer Tutucu (örnek donut)
+  const elPh = document.getElementById('chartPlaceholder');
+  if(elPh){
+    const c = echarts.init(elPh);
+    c.setOption({
+      backgroundColor:'transparent',
+      tooltip:{ trigger:'item' },
+      legend: { top: 6, left: 'center', textStyle:{ color:textColor } },
+      series:[{
+        name:'Örnek',
+        type:'pie',
+        radius:['55%','80%'],
+        label:{ color:textColor, formatter:'{b}\n{c}' },
+        data:[
+          {value:40, name:'A', itemStyle:{color:'#60a5fa'}},
+          {value:25, name:'B', itemStyle:{color:'#f472b6'}},
+          {value:20, name:'C', itemStyle:{color:'#f59e0b'}},
+          {value:15, name:'D', itemStyle:{color:'#22c55e'}}
+        ]
+      }]
+    });
+    window.addEventListener('resize', ()=>c.resize());
+  }
+}
+
+function forceChartResize(){
+  if(!window.echarts) return;
+  const ids=['chartDeviceStatus','chartPowerMix','chartByLocation','chartPlaceholder']; // EKLENDİ
+  ids.forEach(id=>{
+     const el=document.getElementById(id);
+     if(!el) return;
+     const inst=echarts.getInstanceByDom(el);
+     if(inst) inst.resize();
+  });
+}
+window.addEventListener('load', ()=>setTimeout(forceChartResize,150));
+window.addEventListener('resize', ()=>forceChartResize());
 </script>
 </body>
 </html>
