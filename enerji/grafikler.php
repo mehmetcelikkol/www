@@ -1010,8 +1010,16 @@ $genMs = round((microtime(true)-$started)*1000,2);
             {
               xAxis: localIso(new Date(aa)),
               label:{
-                show:true, formatter: label, color:'#fff',
-                backgroundColor: labelBg, padding:[2,4], borderRadius:3, fontSize:10, lineHeight:12
+                show:true,
+                formatter: label,
+                color:'#fff',
+                backgroundColor: labelBg,
+                padding:[2,4],
+                borderRadius:3,
+                fontSize:10,
+                lineHeight:12,
+                position:'insideTop',   // EKLENDİ: Tarife yazıları içeride üstte
+                distance: 2
               },
               itemStyle:{ color: fill }
             },
@@ -1040,31 +1048,30 @@ $genMs = round((microtime(true)-$started)*1000,2);
         if(!o.start || !o.end) return;
         const name = (o.name || '').trim();
         const qtyStr = (o.qty !== null && o.qty !== undefined && o.qty !== '') ? (o.qty + (o.unit ? ' '+o.unit : '')) : '';
-        // Etiket içeriği
+        // Tek satır: "Ad - MiktarBirim"
         let labelTxt = name || 'Operasyon';
-        if(qtyStr) labelTxt += '\n' + qtyStr;
-        // Çok uzun ise kısalt
+        if(qtyStr) labelTxt += ' - ' + qtyStr;
         if(labelTxt.length > 28){
           labelTxt = labelTxt.slice(0,25)+'…';
         }
         areas.push([
           {
             xAxis: o.start,
-            // Her alanın kendi label'ı
             label:{
               show:true,
+              position: 'top',     // Üste taşı
+              distance: 10,        // Tarifenin üstünde dursun
               formatter: labelTxt,
               color:'#ffffff',
               backgroundColor:'rgba(14,201,176,0.70)',
               padding:[3,5],
               borderRadius:4,
-              lineHeight:14,
+              lineHeight:12,
               fontSize:11
             }
           },
           { xAxis: o.end }
         ]);
-        // Başlangıç ve bitiş çizgileri (istersen kaldırabilirsin)
         lines.push({ xAxis:o.start }, { xAxis:o.end });
       });
       return { areas, lines };
@@ -1300,13 +1307,15 @@ $genMs = round((microtime(true)-$started)*1000,2);
             data:[],
             silent:true,
             markArea:{
-              z: 5,
-              label:{ show:false }, // Alan içi label'ları tek tek tanımladık
+              z: 7,           // YÜKSELTİLDİ
+              zlevel: 1,      // Ayrı katmana al
+              label:{ show:false },
               itemStyle:{ color:'rgba(20,201,176,0.18)' },
               data: areas
             },
             markLine:{
-              z: 6,
+              z: 8,           // YÜKSELTİLDİ
+              zlevel: 1,
               symbol:'none',
               label:{ show:false },
               lineStyle:{ color:'#14c9b0', width:1.2, type:'solid' },
