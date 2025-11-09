@@ -369,6 +369,28 @@ if(empty($errors)){
 
 // ---- TEMPLATE ----
 $genMs = round((microtime(true)-$started)*1000,2);
+
+// ---- RENDERING LOGİK (EKLENDİ) ----
+// Kullanıcıdan gelen aralık parametreleri (override)
+$overrideStart = isset($_GET['range_start']) ? trim($_GET['range_start']) : null;
+$overrideEnd   = isset($_GET['range_end'])   ? trim($_GET['range_end'])   : null;
+$overrideOpId  = isset($_GET['op_id']) ? (int)$_GET['op_id'] : 0;
+
+$dtOk = function($s){
+    return preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $s);
+};
+
+if ($overrideStart && $dtOk($overrideStart)) {
+    $RANGE_START_ISO = $overrideStart;
+}
+if ($overrideEnd && $dtOk($overrideEnd)) {
+    $RANGE_END_ISO = $overrideEnd;
+}
+
+// JS’ye aktarım için
+echo '<script>';
+echo 'window.OP_FILTER_ID = '.($overrideOpId ?: 0).';';
+echo '</script>';
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -383,8 +405,8 @@ $genMs = round((microtime(true)-$started)*1000,2);
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
   <style>
-    .canvas-wrap{position:relative;height:330px}
-    @media (max-width:800px){.canvas-wrap{height:260px}}
+    .canvas-wrap{position:relative;height:350px} /* ESKİ: 330px */
+    @media (max-width:800px){.canvas-wrap{height:280px}} /* ESKİ: 260px */
 
     /* Daha şık ve küçük cihaz filtreleri */
     .dev-filter{
@@ -853,6 +875,11 @@ $genMs = round((microtime(true)-$started)*1000,2);
       unit: o.birim
     }));
 
+    // window.OP_FILTER_ID ile filtreleme (varsa, tekil hale getir)
+    if (window.OP_FILTER_ID && Array.isArray(OPS_CACHE)) {
+      OPS_CACHE = OPS_CACHE.filter(o => Number(o.id) === Number(window.OP_FILTER_ID));
+    }
+
     // Yardımcılar
     function parseTs(str){
       if(!str) return NaN;
@@ -1015,10 +1042,10 @@ $genMs = round((microtime(true)-$started)*1000,2);
                 color:'#fff',
                 backgroundColor: labelBg,
                 padding:[2,4],
-                borderRadius:3,
-                fontSize:10,
-                lineHeight:12,
-                position:'insideTop',   // EKLENDİ: Tarife yazıları içeride üstte
+                borderRadius: 3,
+                fontSize: 10,
+                lineHeight: 12,
+                position: 'insideTop',   // EKLENDİ: Tarife yazıları içeride üstte
                 distance: 2
               },
               itemStyle:{ color: fill }
@@ -1096,19 +1123,22 @@ $genMs = round((microtime(true)-$started)*1000,2);
         return;
       }
 
-      // MERKEZİ RENKLER (EKLENDİ / varsa sabit kalsın)
+      // MERKEZİ RENKLER
       const CHART_COLORS = (typeof window!=='undefined' && window.CHART_COLORS) || {
-        text: '#777a80ff',
-        legendText: '#878a91ff',
-        axisLine: '#475569',
-        gridLine: 'rgba(71,85,105,0.25)',
-        zoomText: '#0f172a',
-        pointerLine: '#475569',
-        pointerBg: '#0f172a',
-        pointerFg: '#ffffff'
+        text: '#f1f5f9',          // Eksen ve değer metinleri (açık)
+        legendText: '#f1f5f9',    // (legend kapalı ama tutarlı kalsın)
+        axisLine: '#94a3b8',      // Daha açık çizgi
+        gridLine: 'rgba(241,245,249,0.25)', // İnce açık grid
+        zoomText: '#f1f5f9',      // dataZoom yazıları
+        pointerLine: '#cbd5e1',   // İmleç çizgisi açıldı
+        pointerBg: 'rgba(15,23,42,0.85)', // Koyu zemin
+        pointerFg: '#ffffff'      // Beyaz yazı
       };
 
-      // Global aralık (minIso / maxIso eksikse doldur)
+      // EKLENDİ: Seri renk paleti (checkbox ve grafik için ortak)
+      const palette = window.SERIES_PALETTE || ['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
+
+      // Global aralık
       const minIso = RANGE_START_ISO.replace(' ','T');
       const maxIso = RANGE_END_ISO.replace(' ','T');
 
@@ -1117,7 +1147,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
         const title = document.createElement('div');
         title.textContent = dev.label || ('Cihaz ' + dev.cihaz_id);
         title.style.fontSize='12px';
-        title.style.color = CHART_COLORS.text; // DEĞİŞTİ
+        title.style.color = CHART_COLORS.text;
         title.style.margin='6px 0';
 
         // Satır: Grafik + yan panel
@@ -1168,7 +1198,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
         scrollBox.className = 'series-toggles';
 
         const seriesToggleDefs = [];
-        const primaryMatch = 'toplam aktif gü'; // Başlangıcı bu olan seri seçilecek
+        const primaryMatch = 'toplam aktif gü';
         let foundPrimary = false;
 
         (dev.series||[]).forEach((s, idx)=>{
@@ -1186,16 +1216,20 @@ $genMs = round((microtime(true)-$started)*1000,2);
           rowTog.style.userSelect='none';
           rowTog.style.padding='2px 0';
 
+          const col = palette[idx % palette.length]; // Seri rengi
+
           const cb = document.createElement('input');
           cb.type='checkbox';
-          cb.checked = isPrimary;              // DEĞİŞTİ: Sadece hedef seri açık
+          cb.checked = isPrimary;
           cb.style.margin='0';
           cb.style.width='14px';
           cb.style.height='14px';
-          cb.style.accentColor='#0ea5e9';
+          cb.style.accentColor = col;              // checkbox rengi seriyle aynı
 
           const txt = document.createElement('span');
           txt.textContent = nm;
+          txt.style.color = col; // (seri rengi; bıraktık)
+
           rowTog.append(cb, txt);
           scrollBox.appendChild(rowTog);
           seriesToggleDefs.push({ name: nm, input: cb });
@@ -1241,7 +1275,8 @@ $genMs = round((microtime(true)-$started)*1000,2);
         }
         setSideRange(initialStart, initialEnd);
 
-        const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
+        // PALETTE (yukarı taşındı: hem checkbox renkleri hem seri renkleri için tek kaynak)
+        // const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
 
         // Veri serileri
         const series = (dev.series||[]).map((s,idx)=>{
@@ -1347,13 +1382,14 @@ $genMs = round((microtime(true)-$started)*1000,2);
 
         const option = {
           color: palette,
-          grid:{ left:leftPad, right:18, top:72, bottom:44 },
+          grid:{ left:leftPad, right:18, top:56, bottom:44 },
           axisPointer:{
             link: [{ xAxisIndex: 'all' }],
             label: {
               show: true,
               backgroundColor: CHART_COLORS.pointerBg,   // GÜNCELLENDİ
               color: CHART_COLORS.pointerFg,              // GÜNCELLENDİ
+
               borderColor: '#1e293b',                    // GÜNCELLENDİ
               borderWidth: 1,
               padding: [4,6],
@@ -1370,33 +1406,41 @@ $genMs = round((microtime(true)-$started)*1000,2);
             crossStyle:{ color: CHART_COLORS.pointerLine }                           // GÜNCELLENDİ
           },
           tooltip:{ trigger:'axis', order:'valueDesc', axisPointer:{ type:'cross' } },
-          legend:{
-            type:'scroll',
-            top: 4,
-            left: 8,
-            padding: [0,0,8,0],
-            itemGap: 14,
-            pageIconColor:'#0ea5e9',
-            pageTextStyle:{ color: CHART_COLORS.legendText }, // GÜNCELLENDİ
-            selector:[
-              {type:'all', title:'Tümünü seç'},
-              {type:'inverse', title:'Tersini seç'}
-            ],
-            textStyle:{ color: CHART_COLORS.legendText }       // GÜNCELLENDİ
+          legend:{ show:false },
+          toolbox:{
+            show:true,
+            right:8,
+            bottom:4,          // DEĞİŞTİ: Aşağı sağ köşe (legend ile çakışmaz)
+            top: undefined,    // üstten kaldır
+            orient:'horizontal',
+            itemSize:16,
+            z:20,
+            feature:{
+              saveAsImage:{ title:'Kaydet' },
+              dataZoom:{
+                title:{ zoom:'Yakınlaştır', back:'Geri' }
+              },
+              restore:{ title:'Sıfırla' }
+            },
+            iconStyle:{
+              borderColor:'#0f172a'
+            },
+            emphasis:{
+              iconStyle:{ color:'#0ea5e9' }
+            }
           },
-          toolbox:{ show:true, right:8, feature:{ saveAsImage:{}, dataZoom:{}, restore:{} } },
           xAxis:{
             type:'time',
             min: minIso || undefined,
             max: maxIso || undefined,
-            axisLabel:{ color: CHART_COLORS.text },                 // GÜNCELLENDİ
-            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }}, // GÜNCELLENDİ
-            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }} // GÜNCELLENDİ
+            axisLabel:{ color: CHART_COLORS.text },
+            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
+            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
           },
           yAxis:{
             type:'value',
             scale:true,
-            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 }, // GÜNCELLENDİ
+            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 },
             axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
             splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
           },
