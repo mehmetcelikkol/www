@@ -661,11 +661,11 @@ echo '</script>';
       padding:10px 14px; border-bottom:1px solid #f1f5f9;
     }
     .modal header h3{ font-size:14px; margin:0; color:#0f172a; }
-    .modal .content{ padding:12px 14px; font-size:12px; color:#0f172a; } /* KOYULAŞTIRILDI */
+    .modal .content{ padding:12px 14px; font-size:12px; color:#334155; }
     .modal .content table{ width:100%; border-collapse:collapse; font-size:12px; background:#fff }
-    .modal .content th, .modal .content td{ border:1px solid #e5e7eb; padding:6px 8px; text-align:left; color:#0f172a; } /* KOYULAŞTIRILDI */
-    .modal .content th{ background:#f8fafc; font-weight:600; color:#0b1220; } /* KOYULAŞTIRILDI */
-    .modal .muted{ color:#1f2937; font-size:11px; } /* KOYULAŞTIRILDI */
+    .modal .content th, .modal .content td{ border:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
+    .modal .content th{ background:#f8fafc; font-weight:600; }
+    .modal .muted{ color:#64748b; font-size:11px; }
     /* EKLENDİ: Vurgulu satırlar (seri adı eşleşenler) kalın fonts */
     .modal .content tr.emph-row { font-weight:700; }
     .btn-close{
@@ -880,673 +880,40 @@ echo '</script>';
       OPS_CACHE = OPS_CACHE.filter(o => Number(o.id) === Number(window.OP_FILTER_ID));
     }
 
-    // Yardımcılar
-    function parseTs(str){
-      if(!str) return NaN;
-      return Date.parse(String(str).replace(' ','T'));
-    }
-    function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
-    function fmtDisp(ts){ const d=new Date(ts); if(!Number.isFinite(+d)) return '-'; return fmt(d).replace('T',' '); } // Ekran tarihi
-    function selectedDeviceIds(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) {
-        const all = [...sel.options].map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        const chosen = [...sel.options].filter(o=>o.selected).map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        return chosen.length ? chosen : all;
-      }
-      // Geriye dönük: checkbox varsa
-      const box=document.getElementById('deviceFilter'); 
-      if(!box) return (DEVICES||[]).map(d=>d.cihaz_id);
-      const ids=[...box.querySelectorAll('input[type=checkbox]')].filter(i=>i.checked).map(i=>parseInt(i.value,10));
-      return ids.length? ids : (DEVICES||[]).map(d=>d.cihaz_id);
+    // ---------- Yardımcılar / Modal ve seri vurgusu (EKLENDİ) ----------
+    // Vurgulanacak seri: "Toplam Aktif Güç"
+    function isEmphSeries(name){
+      const nm = String(name||'').toLowerCase();
+      return nm.startsWith('toplam aktif gü'); // "güç" hecesi dahil
     }
 
-    // EKLENDİ: Cihaz seçimi yardımcıları
-    function refreshSelectedCount(){
-      const total = (DEVICES||[]).length;
-      const selCount = selectedDeviceIds().length;
-      const el = document.getElementById('devSelCount');
-      if (el) el.textContent = `Seçili: ${selCount}/${total}`;
+    // Basit modal
+    function showModal(title, html){
+      // Önce var olanı kapat
+      const old = document.getElementById('modalOverlay');
+      if(old) old.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'modalOverlay';
+      overlay.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true" aria-label="${(title||'Rapor').replace(/"/g,'&quot;')}">
+          <header>
+            <h3>${title || 'Rapor'}</h3>
+            <button type="button" class="btn-close" id="modalCloseBtn">Kapat</button>
+          </header>
+          <div class="content">${html || ''}</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      function close(){ overlay.remove(); document.removeEventListener('keydown', esc); }
+      function esc(e){ if(e.key==='Escape') close(); }
+
+      document.getElementById('modalCloseBtn')?.addEventListener('click', close);
+      overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+      document.addEventListener('keydown', esc);
     }
-    function initDeviceFilter(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) sel.addEventListener('change', refreshSelectedCount);
-      refreshSelectedCount();
-    }
-    function selectAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=true);
-      refreshSelectedCount();
-    }
-    function clearAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=false);
-      refreshSelectedCount();
-    }
-    function refreshDeviceChips(){ /* listbox kullanılıyor; no-op */ }
-
-    function buildUrl(start, end){
-      const params = new URLSearchParams();
-      if(start) params.set('start', start);
-      if(end)   params.set('end',   end);
-      const ids = selectedDeviceIds();
-      ids.forEach(id=>params.append('dev[]', String(id)));
-      // Mevcut sayfanın yolu (grafikler.php ya da grafiker1.php fark etmez)
-      const basePath = window.location.pathname;
-      const qs = params.toString();
-      return basePath + (qs ? ('?'+qs) : '');
-    }
-    function goRangeStartEnd(startDate, endDate){
-      const s = fmt(startDate), e = fmt(endDate);
-      window.location = buildUrl(s,e);
-    }
-    function allData(){
-      // Start/end olmadan, dev[] korunarak
-      window.location = buildUrl(null,null);
-    }
-    // Hızlı aralıklar
-    function now(){ return new Date(); }
-    function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
-    function endOfDay(d){ const x=new Date(d); x.setHours(23,59,0,0); return x; }
-    function lastMinutes(m){ const e=now(); const s=new Date(e.getTime()-m*60000); goRangeStartEnd(s,e); }
-    function lastHours(h){ const e=now(); const s=new Date(e.getTime()-h*3600*1000); goRangeStartEnd(s,e); }
-    function lastDays(g){ const e=now(); const s=new Date(e.getTime()-g*24*3600*1000); goRangeStartEnd(s,e); }
-    function today(){ const e=now(); goRangeStartEnd(startOfDay(e), endOfDay(e)); }
-    function yesterday(){ const d=new Date(now().getTime()-24*3600*1000); goRangeStartEnd(startOfDay(d), endOfDay(d)); }
-    // Haftanın ilk günü Pazartesi
-    function getWeekRange(d){
-      const x=new Date(d); const day=(x.getDay()+6)%7; // 0=Mon
-      const s=new Date(x); s.setDate(x.getDate()-day); s.setHours(0,0,0,0);
-      const e=new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,0,0);
-      return [s,e];
-    }
-    function thisWeek(){ const [s,e]=getWeekRange(new Date()); goRangeStartEnd(s,e); }
-    function lastWeek(){ const [s,e]=getWeekRange(new Date(new Date().getTime()-7*24*3600*1000)); goRangeStartEnd(s,e); }
-    function thisMonth(){
-      const n=now(); const s=new Date(n.getFullYear(), n.getMonth(), 1, 0,0,0,0);
-      const e=new Date(n.getFullYear(), n.getMonth()+1, 0, 23,59,0,0);
-      goRangeStartEnd(s,e);
-    }
-    function lastMonth(){
-      const n=now(); const s=new Date(n.getFullYear(), n.getMonth()-1, 1, 0,0,0,0);
-      const e=new Date(n.getFullYear(), n.getMonth(), 0, 23,59,0,0);
-      goRangeStartEnd(s,e);
-    }
-    function thisQuarter(){
-      const n=now(); const qStartMonth = Math.floor(n.getMonth()/3)*3;
-      const s=new Date(n.getFullYear(), qStartMonth, 1, 0,0,0,0);
-      const e=new Date(n.getFullYear(), qStartMonth+3, 0, 23,59,0,0);
-      goRangeStartEnd(s,e);
-    }
-    function ytd(){
-      const n=now(); const s=new Date(n.getFullYear(),0,1,0,0,0,0);
-      const e=endOfDay(n);
-      goRangeStartEnd(s,e);
-    }
-    function thisYear(){
-      const n=now(); const s=new Date(n.getFullYear(),0,1,0,0,0,0);
-      const e=new Date(n.getFullYear(),11,31,23,59,0,0);
-      goRangeStartEnd(s,e);
-    }
-    function lastYear(){
-      const n=now(); const y=n.getFullYear()-1;
-      const s=new Date(y,0,1,0,0,0,0);
-      const e=new Date(y,11,31,23,59,0,0);
-      goRangeStartEnd(s,e);
-    }
-
-    // Renk yardımcı
-    function hexToRgba(hex, a){
-      if(!hex || !hex.startsWith('#')) return hex;
-      const v = hex.length===4
-        ? hex.slice(1).split('').map(x=>parseInt(x+x,16))
-        : [hex.slice(1,3),hex.slice(3,5),hex.slice(5,7)].map(x=>parseInt(x,16));
-      return `rgba(${v[0]},${v[1]},${v[2]},${a})`;
-    }
-
-    // Gece bantları (19:00-07:00) -> ECharts markArea
-    function buildNightAreas(startIso, endIso){
-      const items=[];
-      const s = new Date(startIso.replace(' ','T'));
-      const e = new Date(endIso.replace(' ','T'));
-      if(!(s instanceof Date) || !(e instanceof Date) || isNaN(+s) || isNaN(+e)) return items;
-      const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      for(let d=new Date(d0); d<=e; d.setDate(d.getDate()+1)){
-        const n1 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 19, 0, 0);
-        const n2 = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1, 7, 0, 0);
-        const a = Math.max(+n1, +s), b = Math.min(+n2, +e);
-        if(b > a) items.push([{ xAxis: new Date(a).toISOString().slice(0,19).replace('T','T') }, { xAxis: new Date(b).toISOString().slice(0,19).replace('T','T') }]);
-      }
-      return items;
-    }
-
-    // EKLENDİ: Tarife bantları (Gündüz 06-17, Puant 17-22, Gece 22-06)
-    function buildTariffAreas(startIso, endIso){
-      const areas = [];
-      const s = new Date(startIso.replace(' ','T'));
-      const e = new Date(endIso.replace(' ','T'));
-      if(!(s instanceof Date) || !(e instanceof Date) || isNaN(+s) || isNaN(+e) || e<=s) return areas;
-
-      const pad=n=>String(n).padStart(2,'0');
-      const localIso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-      const at = (d,h,m) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
-      const clampPush = (a,b,label,fill,labelBg)=>{
-        const aa = Math.max(+a, +s), bb = Math.min(+b, +e);
-        if(bb>aa){
-          areas.push([
-            {
-              xAxis: localIso(new Date(aa)),
-              label:{
-                show:true,
-                formatter: label,
-                color:'#fff',
-                backgroundColor: labelBg,
-                padding:[2,4],
-                borderRadius: 3,
-                fontSize: 10,
-                lineHeight: 12,
-                position: 'insideTop',   // EKLENDİ: Tarife yazıları içeride üstte
-                distance: 2
-              },
-              itemStyle:{ color: fill }
-            },
-            { xAxis: localIso(new Date(bb)) }
-          ]);
-        }
-      };
-
-      const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      for(let d=new Date(d0); d<=e; d.setDate(d.getDate()+1)){
-        const dayStart  = at(d, 6, 0), dayEnd  = at(d,17,0);                       // Gündüz
-        const peakStart = at(d,17,0), peakEnd = at(d,22,0);                         // Puant
-        const nightStart= at(d,22,0), nightEnd= at(new Date(d.getFullYear(), d.getMonth(), d.getDate()+1), 6,0); // Gece
-        clampPush(dayStart,  dayEnd,  'Gündüz', 'rgba(250,204,21,0.12)',  'rgba(234,179,8,0.85)');
-        clampPush(peakStart, peakEnd, 'Puant',  'rgba(59,130,246,0.12)',  'rgba(37,99,235,0.85)');
-        clampPush(nightStart,nightEnd,'Gece',   'rgba(2,6,23,0.14)',      'rgba(2,6,23,0.85)');
-      }
-      return areas;
-    }
-
-    // Operasyon alanları -> ECharts markArea + markLine (GÜNCELLENDİ: ad ve miktar etiketli)
-    function buildOpAreas(ops){
-      const areas = [];
-      const lines = [];
-      (ops||[]).forEach(o=>{
-        if(!o.start || !o.end) return;
-        const name = (o.name || '').trim();
-        const qtyStr = (o.qty !== null && o.qty !== undefined && o.qty !== '') ? (o.qty + (o.unit ? ' '+o.unit : '')) : '';
-        // Tek satır: "Ad - MiktarBirim"
-        let labelTxt = name || 'Operasyon';
-        if(qtyStr) labelTxt += ' - ' + qtyStr;
-        if(labelTxt.length > 28){
-          labelTxt = labelTxt.slice(0,25)+'…';
-        }
-        areas.push([
-          {
-            xAxis: o.start,
-            label:{
-              show:true,
-              position: 'top',     // Üste taşı
-              distance: 10,        // Tarifenin üstünde dursun
-              formatter: labelTxt,
-              color:'#ffffff',
-              backgroundColor:'rgba(14,201,176,0.70)',
-              padding:[3,5],
-              borderRadius:4,
-              lineHeight:12,
-              fontSize:11
-            }
-          },
-          { xAxis: o.end }
-        ]);
-        lines.push({ xAxis:o.start }, { xAxis:o.end });
-      });
-      return { areas, lines };
-    }
-
-    // Chart.js eklentilerini kaydetme fonksiyonu artık kullanılmıyor
-    function bootPlugins(){}
-
-    // ECharts ile grafik kur
-    function buildCharts(){
-      const container=document.getElementById('charts'); if(!container) return;
-
-      // Temizle (yeniden kurulum)
-      container.innerHTML = '';
-      chartInstances = {};
-
-      // Seçili cihazlar
-      const ids = selectedDeviceIds();
-      const devicesToShow = (DEVICES||[]).filter(d=> ids.includes(d.cihaz_id));
-      if(!devicesToShow.length){
-        console.warn('Seçili cihaz bulunamadı.');
-        return;
-      }
-
-      // MERKEZİ RENKLER
-      const CHART_COLORS = (typeof window!=='undefined' && window.CHART_COLORS) || {
-        text: '#f1f5f9',          // Eksen ve değer metinleri (açık)
-        legendText: '#f1f5f9',    // (legend kapalı ama tutarlı kalsın)
-        axisLine: '#94a3b8',      // Daha açık çizgi
-        gridLine: 'rgba(241,245,249,0.25)', // İnce açık grid
-        zoomText: '#f1f5f9',      // dataZoom yazıları
-        pointerLine: '#cbd5e1',   // İmleç çizgisi açıldı
-        pointerBg: 'rgba(15,23,42,0.85)', // Koyu zemin
-        pointerFg: '#ffffff'      // Beyaz yazı
-      };
-
-      // EKLENDİ: Seri renk paleti (checkbox ve grafik için ortak)
-      const palette = window.SERIES_PALETTE || ['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
-
-      // Global aralık
-      const minIso = RANGE_START_ISO.replace(' ','T');
-      const maxIso = RANGE_END_ISO.replace(' ','T');
-
-      devicesToShow.forEach(dev=>{
-        // Başlık
-        const title = document.createElement('div');
-        title.textContent = dev.label || ('Cihaz ' + dev.cihaz_id);
-        title.style.fontSize='12px';
-        title.style.color = CHART_COLORS.text;
-        title.style.margin='6px 0';
-
-        // Satır: Grafik + yan panel
-        const row = document.createElement('div');
-        row.className='chart-row';
-
-        // Grafik alanı
-        const wrap = document.createElement('div');
-        wrap.className='canvas-wrap';
-        const chartDiv = document.createElement('div');
-        chartDiv.style.width='100%';
-        chartDiv.style.height='100%';
-        wrap.appendChild(chartDiv);
-
-        // Yan panel
-        const side = document.createElement('div');
-        side.className='chart-side';
-        const grp1 = document.createElement('div'); grp1.className='group';
-        const lbl1 = document.createElement('div'); lbl1.className='label'; lbl1.textContent='Başlangıç';
-        const val1 = document.createElement('div'); val1.className='value'; val1.textContent='-';
-        const lbl2 = document.createElement('div'); lbl2.className='label'; lbl2.textContent='Bitiş';
-        const val2 = document.createElement('div'); val2.className='value'; val2.textContent='-';
-        grp1.append(lbl1,val1,lbl2,val2);
-
-        const grp2 = document.createElement('div'); grp2.className='group';
-        // DEĞİŞTİ: Tek buton yerine iki buton
-        const btnSummary = document.createElement('button');
-        btnSummary.className='btn btn-outline btn-xs';
-        btnSummary.textContent='Özet Rapor';
-        btnSummary.type = 'button'; // EKLENDİ
-
-        const btnDetail = document.createElement('button');
-        btnDetail.className='btn btn-primary btn-xs';
-        btnDetail.textContent='Detaylı Rapor';
-        btnDetail.type = 'button'; // EKLENDİ
-        grp2.append(btnSummary, btnDetail);
-
-        // EKLENDİ: Seri görünürlük kutuları (yalnızca ham veri serileri)
-        const grp3 = document.createElement('div');
-        grp3.className = 'group';
-        const togTitle = document.createElement('div');
-        togTitle.textContent = 'Seriler';
-        togTitle.style.fontSize='11px';
-        togTitle.style.fontWeight='600';
-        togTitle.style.color='#0f172a';
-        togTitle.style.marginBottom='4px';
-        grp3.appendChild(togTitle);
-
-        // EKLENDİ: Scroll kutusu
-        const scrollBox = document.createElement('div');
-        scrollBox.className = 'series-toggles';
-
-        const seriesToggleDefs = [];
-        const primaryMatch = 'toplam aktif gü';
-        let foundPrimary = false;
-
-        (dev.series||[]).forEach((s, idx)=>{
-          const nm = s.name || ('Seri '+(idx+1));
-          const lower = nm.toLowerCase();
-          const isPrimary = lower.startsWith(primaryMatch);
-          if(isPrimary) foundPrimary = true;
-
-          const rowTog = document.createElement('label');
-          rowTog.style.display='flex';
-          rowTog.style.alignItems='center';
-          rowTog.style.gap='6px';
-          rowTog.style.fontSize='11px';
-          rowTog.style.cursor='pointer';
-          rowTog.style.userSelect='none';
-          rowTog.style.padding='2px 0';
-
-          const col = palette[idx % palette.length]; // Seri rengi
-
-          const cb = document.createElement('input');
-          cb.type='checkbox';
-          cb.checked = isPrimary;
-          cb.style.margin='0';
-          cb.style.width='14px';
-          cb.style.height='14px';
-          cb.style.accentColor = col;              // checkbox rengi seriyle aynı
-
-          const txt = document.createElement('span');
-          txt.textContent = nm;
-          txt.style.color = col; // (seri rengi; bıraktık)
-
-          rowTog.append(cb, txt);
-          scrollBox.appendChild(rowTog);
-          seriesToggleDefs.push({ name: nm, input: cb });
-        });
-
-        // Hedef seri yoksa ilk seriyi aç
-        if(!foundPrimary && seriesToggleDefs.length){
-          seriesToggleDefs[0].input.checked = true;
-        }
-
-        grp3.appendChild(scrollBox);
-        side.append(grp1, grp2, grp3); // DEĞİŞTİ: scrollBox eklendi
-
-        row.appendChild(wrap);
-        row.appendChild(side);
-
-        const outer = document.createElement('div');
-        outer.style.marginBottom='12px';
-        outer.appendChild(title);
-        outer.appendChild(row);
-        container.appendChild(outer);
-
-        // Cihazın ham veri kapsamı (tüm serilerden)
-        function deviceExtent(dev){
-          let s=Number.POSITIVE_INFINITY, e=Number.NEGATIVE_INFINITY;
-          (dev.series||[]).forEach(sv=>{
-            (sv.data||[]).forEach(p=>{
-              const t = parseTs(p[0] || p.x);
-              if(Number.isFinite(t)){ if(t<s) s=t; if(t>e) e=t; }
-            });
-          });
-          if(!Number.isFinite(s) || !Number.isFinite(e) || e<=s) return null;
-          return {startTs:s, endTs:e};
-        }
-        const devExt = deviceExtent(dev);
-        const initialStart = (minIso ? Date.parse(minIso) : (devExt?.startTs ?? Date.now()-3600*1000));
-        const initialEnd   = (maxIso ? Date.parse(maxIso) : (devExt?.endTs   ?? Date.now()));
-
-        // Başlangıç/Bitiş görüntüle
-        function setSideRange(sTs, eTs){
-          val1.textContent = fmtDisp(sTs);
-          val2.textContent = fmtDisp(eTs);
-        }
-        setSideRange(initialStart, initialEnd);
-
-        // PALETTE (yukarı taşındı: hem checkbox renkleri hem seri renkleri için tek kaynak)
-        // const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
-
-        // Veri serileri
-        const series = (dev.series||[]).map((s,idx)=>{
-          const col = palette[idx%palette.length]; // o serinin temel rengi
-          return {
-            name: s.name || ('Seri '+(idx+1)),
-            type: 'line',
-            showSymbol: false,
-            smooth: 0.25,
-            sampling: 'lttb',
-            progressive: 800,
-            progressiveThreshold: 5000,
-            lineStyle: { width: 1.6, color: col },
-            areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
-              {offset:0, color: hexToRgba(col, 0.28)},
-              {offset:1, color: hexToRgba(col, 0.05)}
-            ]) },
-            emphasis: { focus: 'series', lineStyle:{ width: 2.6 } },
-            blur:     { lineStyle:{ opacity: 0.25 }, itemStyle:{ opacity: 0.25 }, areaStyle:{ opacity: 0.15 } },
-            data: Array.isArray(s.data) ? s.data.map(p=>[p.x ?? p[0], p.y ?? p[1]]) : []
-          };
-        });
-
-        // Gece bantları
-        // const nightAreas = buildNightAreas(RANGE_START_ISO, RANGE_END_ISO);
-        // if(nightAreas.length){
-        //   series.push({
-        //     name:'Gece',
-        //     type:'line',
-        //     data:[],
-        //     silent:true,
-        //     markArea:{
-        //       label:{ show:false },
-        //       itemStyle:{ color:'rgba(45,62,80,0.16)' },
-        //       data: nightAreas
-        //     }
-        //   });
-        // }
-
-        // EKLENDİ: Tarife bantları (Gündüz/Puant/Gece)
-        const tariffAreas = buildTariffAreas(RANGE_START_ISO, RANGE_END_ISO);
-        if(tariffAreas.length){
-          series.push({
-            name:'Tarife',
-            type:'line',
-            data:[],
-            silent:true,
-            markArea:{
-              z: 2,
-              label:{ show:false },                // etiketler tek tek area üzerinde
-              itemStyle:{ color:'rgba(148,163,184,0.10)' }, // varsayılan (area bazında override ediliyor)
-              data: tariffAreas
-            }
-          });
-        }
-
-        // Operasyon overlay (GÜNCELLENDİ)
-        if(OPS_ENABLED && OPS_CACHE.length){
-          const {areas, lines} = buildOpAreas(OPS_CACHE);
-          series.push({
-            name:'Operasyon',
-            type:'line',
-            data:[],
-            silent:true,
-            markArea:{
-              z: 7,           // YÜKSELTİLDİ
-              zlevel: 1,      // Ayrı katmana al
-              label:{ show:false },
-              itemStyle:{ color:'rgba(20,201,176,0.18)' },
-              data: areas
-            },
-            markLine:{
-              z: 8,           // YÜKSELTİLDİ
-              zlevel: 1,
-              symbol:'none',
-              label:{ show:false },
-              lineStyle:{ color:'#14c9b0', width:1.2, type:'solid' },
-              data: lines
-            }
-          });
-        }
-
-        // Y ekseni etiketleri uzun ise sol boşluğu dinamik ayarla
-        function calcLeftPad(){
-          let maxAbs = 0; let hasNeg = false;
-          (dev.series||[]).forEach(s=>{
-            (s.data||[]).forEach(p=>{
-              const y = Number(p.y ?? p[1]);
-              if(Number.isFinite(y)){
-                const a = Math.abs(y);
-                if(a > maxAbs) maxAbs = a;
-                if(y < 0) hasNeg = true;
-              }
-            });
-          });
-          const digits = maxAbs > 0 ? Math.floor(Math.log10(maxAbs)) + 1 : 1;
-          const charW = 7.2;  // 11px font için yaklaşık karakter genişliği
-          const extra = 24;   // iç boşluk payı
-          const signW = hasNeg ? 8 : 0;
-          return Math.max(56, Math.min(160, Math.ceil(digits * charW + extra + signW)));
-        }
-        const leftPad = calcLeftPad();
-
-        const option = {
-          color: palette,
-          grid:{ left:leftPad, right:18, top:56, bottom:44 },
-          axisPointer:{
-            link: [{ xAxisIndex: 'all' }],
-            label: {
-              show: true,
-              backgroundColor: CHART_COLORS.pointerBg,   // GÜNCELLENDİ
-              color: CHART_COLORS.pointerFg,              // GÜNCELLENDİ
-
-              borderColor: '#1e293b',                    // GÜNCELLENDİ
-              borderWidth: 1,
-              padding: [4,6],
-              shadowBlur: 0,
-              formatter: (params)=>{
-                const v = params.value;
-                const t = typeof v === 'number' ? new Date(v) : new Date(v);
-                if(!Number.isFinite(+t)) return '';
-                const z = n=>String(n).padStart(2,'0');
-                return `${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())} ${z(t.getHours())}:${z(t.getMinutes())}`;
-              }
-            },
-            lineStyle: { color: CHART_COLORS.pointerLine, width:1, type:'dashed' }, // GÜNCELLENDİ
-            crossStyle:{ color: CHART_COLORS.pointerLine }                           // GÜNCELLENDİ
-          },
-          tooltip:{ trigger:'axis', order:'valueDesc', axisPointer:{ type:'cross' } },
-          legend:{ show:false },
-          toolbox:{
-            show:true,
-            right:8,
-            bottom:4,          // DEĞİŞTİ: Aşağı sağ köşe (legend ile çakışmaz)
-            top: undefined,    // üstten kaldır
-            orient:'horizontal',
-            itemSize:16,
-            z:20,
-            feature:{
-              saveAsImage:{ title:'Kaydet' },
-              dataZoom:{
-                title:{ zoom:'Yakınlaştır', back:'Geri' }
-              },
-              restore:{ title:'Sıfırla' }
-            },
-            iconStyle:{
-              borderColor:'#0f172a'
-            },
-            emphasis:{
-              iconStyle:{ color:'#0ea5e9' }
-            }
-          },
-          xAxis:{
-            type:'time',
-            min: minIso || undefined,
-            max: maxIso || undefined,
-            axisLabel:{ color: CHART_COLORS.text },
-            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
-            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
-          },
-          yAxis:{
-            type:'value',
-            scale:true,
-            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 },
-            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
-            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
-          },
-          dataZoom:[
-            { type:'inside', xAxisIndex:0 },
-            {
-              type:'slider', xAxisIndex:0, height:18,
-              start:0, end:100, realtime:true,
-              showDetail: true,
-              textStyle:{ color: CHART_COLORS.zoomText }           // GÜNCELLENDİ
-            }
-          ],
-          animationDuration:600,
-          stateAnimation:{ duration:200 },
-          series
-        };
-
-        const ec = echarts.init(chartDiv, null, {renderer:'canvas'});
-        ec.setOption(option);
-
-        // EKLENDİ: Checkbox değişiminde legend.selected güncelle
-        function applySeriesVisibility(){
-          const selected = {};
-          // Toggle'ı olmayan (Gece/Operasyon gibi) seriler açık kalsın
-          series.forEach(sObj=>{
-            const def = seriesToggleDefs.find(d=>d.name===sObj.name);
-            selected[sObj.name] = def ? !!def.input.checked : true;
-          });
-          ec.setOption({ legend: { selected } });
-        }
-        seriesToggleDefs.forEach(def=>{
-          def.input.addEventListener('change', applySeriesVisibility);
-        });
-        // İlk durum
-        applySeriesVisibility();
-
-        // dataZoom aralığını dışarı aktar (global değişken + event) ve paneli güncelle
-        (function attachZoomExport(){
-          const totalStart = (minIso ? Date.parse(minIso) : (devExt?.startTs ?? Date.now()-3600*1000));
-          const totalEnd   = (maxIso ? Date.parse(maxIso) : (devExt?.endTs   ?? Date.now()));
-          function pushZoom(payload){
-            const b = payload || {};
-            const startPct = typeof b.start === 'number' ? b.start : 0;
-            const endPct   = typeof b.end   === 'number' ? b.end   : 100;
-            let sTs = b.startValue ? Date.parse(String(b.startValue)) : (totalStart + (totalEnd-totalStart)*(startPct/100));
-            let eTs = b.endValue   ? Date.parse(String(b.endValue))   : (totalStart + (totalEnd-totalStart)*(endPct/100));
-            if(!Number.isFinite(sTs) || !Number.isFinite(eTs)) return;
-            setSideRange(sTs, eTs); // panel güncelle
-            const sIso = new Date(sTs).toISOString().slice(0,16);
-            const eIso = new Date(eTs).toISOString().slice(0,16);
-            window.ZOOM_RANGE = { startTs:sTs, endTs:eTs, startIso:sIso, endIso:eIso, startPct, endPct, deviceId: dev.cihaz_id };
-            // Cihaza özel son aralık
-            if(chartInstances[dev.cihaz_id]) chartInstances[dev.cihaz_id].lastRange = { startTs:sTs, endTs:eTs };
-            window.dispatchEvent(new CustomEvent('chartRangeChange', { detail: window.ZOOM_RANGE }));
-          }
-          ec.on('dataZoom', (evt)=>{
-            const first = (evt && evt.batch && evt.batch[0]) ? evt.batch[0] : evt || {};
-            pushZoom(first);
-          });
-          pushZoom({ start: option.dataZoom[1].start ?? 0, end: option.dataZoom[1].end ?? 100 });
-        })();
-
-        // Rapor butonları
-        btnSummary.addEventListener('click', (e)=>{
-          e.preventDefault(); e.stopPropagation(); // EKLENDİ
-          try{
-            const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
-            showDeviceReportSummary(dev, lr.startTs, lr.endTs);
-          }catch(err){
-            console.error('Özet Rapor açılırken hata:', err);
-            alert('Özet rapor açılamadı. Konsolu kontrol edin.');
-          }
-        });
-        btnDetail.addEventListener('click', (e)=>{
-          e.preventDefault(); e.stopPropagation(); // EKLENDİ
-          try{
-            const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
-            showDeviceReportDetailed(dev, lr.startTs, lr.endTs);
-          }catch(err){
-            console.error('Detaylı Rapor açılırken hata:', err);
-            alert('Detaylı rapor açılamadı. Konsolu kontrol edin.');
-          }
-        });
-
-        window.addEventListener('resize', ()=> ec.resize());
-        chartInstances[dev.cihaz_id] = {
-          chart: ec,
-          wrapper: wrap,
-          sideEl: side,
-          startEl: val1,
-          endEl: val2,
-          lastRange: { startTs: initialStart, endTs: initialEnd }
-        };
-      }); // devicesToShow.forEach sonu
-
-      // Senkron bağlama
-      try{
-        const toConnect = Object.values(chartInstances).map(o=>o.chart);
-        if (toConnect.length > 1) echarts.connect(toConnect);
-      }catch(e){ console.warn('Connect hatası', e); }
-
-      console.log('ECharts kurulum tamam. Grafik sayısı:', Object.keys(chartInstances).length);
-    } // buildCharts sonu
 
     // ---------- Raporlama yardımcıları ----------
     function escapeHtml(x){ const d=document.createElement('div'); d.textContent=String(x??''); return d.innerHTML; }
@@ -1600,44 +967,28 @@ echo '</script>';
     }
     function within(ts, s, e){ return ts>=s && ts<=e; }
 
-    // EKLENDİ: Hangi seri adlarının kalın gösterileceği
-    function isEmphSeries(name){
-      if(!name) return false;
-      const n = String(name).trim().toLowerCase();
-      return n==='toplam aktif güç' || n==='toplam reaktif güç' || n==='toplam görünür güç';
+    // EKLENDİ: Güç serisi tespiti ve ortalama güce göre enerji (kWh) hesaplama
+    function isPowerSeries(name, unit){
+      const nm = String(name||'').toLowerCase();
+      const u  = String(unit||'').toLowerCase();
+      return nm.includes('güç') || u.includes('w'); // "güç" geçen ya da birimi W/kW olanlar
+    }
+    function energyFromMean(mean, unit, startTs, endTs){
+      const sec = Math.max(0, Math.round((endTs - startTs)/1000)); // saniye
+      if(!Number.isFinite(mean) || sec<=0) return { value: NaN, unit: 'kWh' };
+      const u = String(unit||'').toLowerCase();
+      // Birime göre kWh’ye çevir
+      if(u.includes('kw')){              // kW -> kWh
+        return { value: mean * (sec/3600), unit: 'kWh' };
+      } else if(u.includes('w')){        // W -> kWh (W→kW)
+        return { value: (mean/1000) * (sec/3600), unit: 'kWh' };
+      } else {
+        // Birim bilinmiyorsa ortalamayı kW varsayalım (isteğe bağlı)
+        return { value: mean * (sec/3600), unit: 'kWh' };
+      }
     }
 
-
-
-    function showModal(title, htmlContent){
-      let overlay = document.createElement('div'); overlay.className='modal-overlay';
-      let modal = document.createElement('div'); modal.className='modal';
-      let header = document.createElement('header');
-      let h = document.createElement('h3'); h.textContent = title;
-      let x = document.createElement('button'); x.className='btn-close'; x.textContent='Kapat';
-
-      const onEsc = (e)=>{ if(e.key==='Escape'){ close(); } }; // DEĞİŞTİ
-      const close = ()=>{ 
-        if(overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        document.removeEventListener('keydown', onEsc);         // DEĞİŞTİ
-      };
-
-      x.addEventListener('click', close);
-      header.append(h,x);
-
-      let content = document.createElement('div');
-      content.className = 'content';
-      content.innerHTML = htmlContent;
-
-      modal.append(header, content); 
-      overlay.appendChild(modal);
-
-      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
-      document.addEventListener('keydown', onEsc);              // DEĞİŞTİ
-      document.body.appendChild(overlay);
-    }
-
-    // YENİ: Özet rapor (güncellendi: unit ekle)
+    // YENİ: Özet rapor (güncellendi: unit + enerji hesabı)
     function showDeviceReportSummary(dev, startTs, endTs){
       const rows = [];
       (dev.series||[]).forEach(s=>{
@@ -1646,33 +997,39 @@ echo '</script>';
           return Number.isFinite(t) && within(t, startTs, endTs);
         });
         const st = computeSeriesStats(pts);
-        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st });
       });
       const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)}</div>`;
       function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
-      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-'); // sayı + birim
+      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-');
+
       let html = `
         ${head}
         <table style="margin-top:8px">
-          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th></tr></thead>
+          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam (kWh)</th></tr></thead>
           <tbody>
       `;
       rows.forEach(r=>{
         const s=r.stats, u=r.unit, nm=r.name || 'Seri';
         const emph = isEmphSeries(nm);
+        let totalCell = '-';
+        if (isPowerSeries(nm, u)) {
+          const en = energyFromMean(s.mean, u, startTs, endTs);
+          totalCell = withUnit(en.value, en.unit);
+        }
         html += `<tr${emph?' class="emph-row"':''}>
           <td>${escapeHtml(nm)}</td>
           <td>${withUnit(s.min,u)}</td>
           <td>${withUnit(s.max,u)}</td>
           <td>${withUnit(s.mean,u)}</td>
-          <td>${withUnit(s.delta,u)}</td>
+          <td>${totalCell}</td>
         </tr>`;
       });
       html += `</tbody></table>`;
       showModal('Özet Rapor', html);
     }
 
-    // DEĞİŞTİ: Detay rapor (mevcut içerik buraya taşındı)
+    // DEĞİŞTİ: Detay rapor (enerji kolonunu ortalamaya göre saniye bazlı hesaplar)
     function showDeviceReportDetailed(dev, startTs, endTs){
       const rows = [];
       let totalPoints=0;
@@ -1683,7 +1040,7 @@ echo '</script>';
         });
         totalPoints += pts.length;
         const st = computeSeriesStats(pts);
-        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st });
       });
 
       const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)} — Nokta: ${totalPoints}</div>`;
@@ -1696,14 +1053,14 @@ echo '</script>';
       function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
       function fmtDur(ms){ if(!Number.isFinite(ms) || ms<=0) return '-'; const s=Math.round(ms/1000); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60); return `${h}s ${String(m).padStart(2,'0')}dk`; }
       function fmtDt(ts){ return fmtDisp(ts); }
-      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-'); // sayı + birim
+      const withUnit = (v,u)=> (Number.isFinite(v)? `${fmtNum(v)}${u? ' '+u:''}` : '-');
 
       let table = `
         <table>
           <thead>
             <tr>
               <th>Seri</th><th>Adet</th><th>Min</th><th>Min Zaman</th><th>Maks</th><th>Maks Zaman</th>
-              <th>Ortalama</th><th>Medyan</th><th>P10</th><th>P90</th><th>Std Sapma</th><th>Toplam</th>
+              <th>Ortalama</th><th>Medyan</th><th>P10</th><th>P90</th><th>Std Sapma</th><th>Enerji (kWh)</th>
               <th>İlk</th><th>Son</th><th>Delta</th><th>Ör. Aralığı</th><th>Boşluk Sayısı</th><th>Boşluk Süresi</th>
             </tr>
           </thead>
@@ -1712,6 +1069,11 @@ echo '</script>';
       for(const r of rows){
         const s = r.stats, u = r.unit, nm = r.name || 'Seri';
         const emph = isEmphSeries(nm);
+        let energyCell = '-';
+        if (isPowerSeries(nm, u)) {
+          const en = energyFromMean(s.mean, u, startTs, endTs);
+          energyCell = withUnit(en.value, en.unit);
+        }
         table += `
           <tr${emph?' class="emph-row"':''}>
             <td>${escapeHtml(nm)}</td>
@@ -1725,7 +1087,7 @@ echo '</script>';
             <td>${withUnit(s.p10,u)}</td>
             <td>${withUnit(s.p90,u)}</td>
             <td>${withUnit(s.std,u)}</td>
-            <td>${withUnit(s.sum,u)}</td>
+            <td>${energyCell}</td>
             <td>${withUnit(s.first,u)}</td>
             <td>${withUnit(s.last,u)}</td>
             <td>${withUnit(s.delta,u)}</td>
@@ -1737,20 +1099,125 @@ echo '</script>';
       }
       table += '</tbody></table>';
 
-      const tips = `<div class="muted" style="margin-top:8px">Not: Değer sütunlarındaki birimler cihaz_adresleri.unit kaynağından eklenmiştir.</div>`;
+      const tips = `<div class="muted" style="margin-top:8px">Not: Enerji (kWh) değeri ortalama güç × süre(s) / 3600 ile hesaplanır. Güç birimi W ise kWh’ye çevrilir.</div>`;
 
       showModal('Detaylı Rapor', head + table + tips);
     }
 
-    // Başlat
-    document.getElementById('opsToggle')?.addEventListener('change', (e)=>{
-      OPS_ENABLED = !!e.target.checked;
+    function waitForLibs(cb, timeoutMs=8000){
+      const t0 = Date.now();
+      (function loop(){
+        if (window.echarts) {
+          try { cb(); } catch (e) { console.error('buildCharts hata:', e); }
+          return;
+        }
+        if (Date.now() - t0 > timeoutMs) {
+          console.warn('ECharts geç gelmedi (timeout), yine de deniyorum.');
+          try { cb(); } catch (e) { console.error('buildCharts (timeout) hata:', e); }
+          return;
+        }
+        setTimeout(loop, 80);
+      })();
+    }
+
+    // Basit renk paleti ve tema (gerekliyse)
+    const PALETTE = ['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
+
+    // ECharts seçenek üretici (örnek basit)
+    function makeOption(dev){
+      const series = (dev.series||[]).map((s,i)=>({
+        name: s.name,
+        type: 'line',
+        showSymbol:false,
+        smooth:0.25,
+        data: (s.data||[]).map(p=>[p.x || p[0], p.y || p[1]]),
+        lineStyle:{ width:1.4, color: PALETTE[i%PALETTE.length] }
+      }));
+      return {
+        color: PALETTE,
+        grid:{ left:40, right:20, top:20, bottom:30 },
+        tooltip:{ trigger:'axis' },
+        xAxis:{ type:'time' },
+        yAxis:{ type:'value', scale:true },
+        series
+      };
+    }
+
+    // buildCharts (yeniden / kurtarma)
+    function buildCharts(){
+      try{
+        const wrap = document.getElementById('charts');
+        if(!wrap){ console.warn('charts konteyneri yok'); return; }
+        wrap.innerHTML = '';
+        chartInstances = {};
+
+        const selected = getSelectedDeviceIds();
+        const list = DEVICES.filter(d=> selected.length===0 || selected.includes(d.cihaz_id));
+
+        if(!list.length){
+          wrap.innerHTML = '<div style="padding:10px;font-size:12px;color:#64748b">Seçili cihaz yok.</div>';
+          return;
+        }
+
+        list.forEach(dev=>{
+          const row = document.createElement('div');
+          row.className='canvas-wrap';
+          row.style.marginBottom='18px';
+
+          const title = document.createElement('div');
+          title.style.fontSize='12px';
+          title.style.margin='0 0 4px';
+          title.style.color='#334155';
+          title.textContent = dev.label || ('Cihaz '+dev.cihaz_id);
+          row.appendChild(title);
+
+          const el = document.createElement('div');
+          el.style.width='100%';
+          el.style.height='calc(100% - 16px)';
+          el.style.minHeight='320px';
+          row.appendChild(el);
+          wrap.appendChild(row);
+
+          const chart = echarts.init(el);
+          chart.setOption(makeOption(dev));
+          chartInstances[dev.cihaz_id] = chart;
+        });
+      }catch(e){
+        console.error('buildCharts hata:', e);
+      }
+    }
+
+    // Seçili cihaz ID'leri (select multiple)
+    function getSelectedDeviceIds(){
+      const sel = document.getElementById('deviceSelect');
+      if(!sel) return [];
+      return Array.from(sel.selectedOptions).map(o=> parseInt(o.value,10)).filter(Number.isFinite);
+    }
+
+    // Cihaz seçim yardımcıları (varsa yoksa ekle)
+    function selectAllDevices(){
+      const sel=document.getElementById('deviceSelect');
+      if(!sel) return;
+      Array.from(sel.options).forEach(o=> o.selected=true);
       buildCharts();
-    });
-    document.addEventListener('DOMContentLoaded', ()=>{
-      initDeviceFilter();
+    }
+    function clearAllDevices(){
+      const sel=document.getElementById('deviceSelect');
+      if(!sel) return;
+      Array.from(sel.options).forEach(o=> o.selected=false);
       buildCharts();
-    });
-</script>
+    }
+
+    // Başlatma: load sonrası sadece ECharts hazır olunca kur
+    window.addEventListener('load', ()=>{
+      waitForLibs(()=>{
+        console.log('Kütüphaneler hazır (ECharts), grafik kuruluyor');
+        buildCharts();
+      });
+    }, { once:true });
+
+    // DOMContentLoaded bloğunu kaldırın veya aşağıdaki gibi sade bırakın:
+    // document.addEventListener('DOMContentLoaded', ()=>{ /* boş */ });
+  </script>
 </body>
 </html>
