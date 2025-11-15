@@ -1,8 +1,42 @@
 <?php
-// Tank İzleme Sayfası
+// Tank İzleme Sayfası - Dinamik Versiyon
 
-// Tank verilerini çek
+$data = [];
+$tank_latest_data = [];
+$available_tanks = [];
+$error_message = null;
+
 try {
+    // 1. Veritabanındaki mevcut tüm tank numaralarını dinamik olarak al
+    $tank_list_stmt = $pdo->query("SELECT DISTINCT tank FROM tank_verileri ORDER BY tank ASC");
+    $available_tanks = $tank_list_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!empty($available_tanks)) {
+        // 2. Her tank için en son veriyi tek ve verimli bir sorguyla çek
+        $placeholders = implode(',', array_fill(0, count($available_tanks), '?'));
+        
+        $latest_sql = "
+            SELECT t1.*
+            FROM tank_verileri t1
+            INNER JOIN (
+                SELECT tank, MAX(tarihsaat) AS max_ts
+                FROM tank_verileri
+                WHERE tank IN ($placeholders)
+                GROUP BY tank
+            ) t2 ON t1.tank = t2.tank AND t1.tarihsaat = t2.max_ts
+        ";
+        
+        $latest_stmt = $pdo->prepare($latest_sql);
+        $latest_stmt->execute($available_tanks);
+        $all_latest = $latest_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Gelen veriyi tank numarasına göre anahtarlı bir diziye dönüştür
+        foreach ($all_latest as $row) {
+            $tank_latest_data[$row['tank']] = $row;
+        }
+    }
+
+    // 3. Ana tablo için verileri çek (tarih aralığına göre)
     $sql = "SELECT * FROM tank_verileri 
             WHERE tarihsaat >= :start_date AND tarihsaat <= :end_date 
             ORDER BY tarihsaat DESC LIMIT 500";
@@ -12,25 +46,8 @@ try {
     $stmt->bindValue(':end_date', $end_date . ' 23:59:59');
     $stmt->execute();
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Tank dashboard için son değerler
-    $tank_latest_data = [];
-    $latest_sql = "SELECT * FROM tank_verileri WHERE tank IN (1, 2) ORDER BY tarihsaat DESC LIMIT 10";
-    $latest_stmt = $pdo->prepare($latest_sql);
-    $latest_stmt->execute();
-    $all_latest = $latest_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ([1, 2] as $tank_num) {
-        foreach ($all_latest as $row) {
-            if ($row['tank'] == $tank_num) {
-                $tank_latest_data[$tank_num] = $row;
-                break;
-            }
-        }
-    }
-    
+
 } catch(PDOException $e) {
-    $data = [];
     $error_message = "Veri çekme hatası: " . $e->getMessage();
 }
 ?>
@@ -42,7 +59,7 @@ try {
         <h3>🛢️ Tank Durumu - Anlık Değerler</h3>
     </div>
     <div class="tanks-container">
-        <?php foreach ([1, 2] as $tank_num): ?>
+        <?php foreach ($available_tanks as $tank_num): ?>
             <?php if (isset($tank_latest_data[$tank_num])): ?>
                 <?php 
                 $tank_data = $tank_latest_data[$tank_num];
@@ -92,6 +109,16 @@ try {
         <?php endforeach; ?>
     </div>
 </div>
+<?php elseif ($error_message): ?>
+    <div class="error-state">
+        <h3>Bir Hata Oluştu</h3>
+        <p><?= htmlspecialchars($error_message) ?></p>
+    </div>
+<?php else: ?>
+    <div class="empty-state">
+        <h3>Tank Bulunamadı</h3>
+        <p>Veritabanında herhangi bir tank verisine rastlanmadı.</p>
+    </div>
 <?php endif; ?>
 
 <!-- Tank Verileri Tablosu -->
