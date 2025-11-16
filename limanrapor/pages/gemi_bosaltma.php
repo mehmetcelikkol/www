@@ -159,8 +159,10 @@ if ($pdo) {
 <script src="assets/js/libs/html2canvas.min.js"></script>
 <script src="assets/js/libs/jspdf.umd.min.js"></script>
 <!-- DEĞİŞİKLİK BİTİŞİ -->
-
+<script src="assets/js/base64.js"></script>
 <script>
+
+
 document.addEventListener('DOMContentLoaded', function () {
     const opSelector = document.getElementById('operation-selector');
     const chartSection = document.getElementById('chart-section');
@@ -315,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Resim 1'i ekle (Filtreler)
                 const ratio1 = canvas1.height / canvas1.width;
                 const imgHeight1 = (pdfWidth - margin * 2) * ratio1;
-                pdf.addImage(imgData1, 'PNG', margin, margin, pdfWidth - margin * 2, imgHeight1);
+                pdf.addImage(imgData1, 'PNG', margin, margin + 20, pdfWidth - margin * 2, imgHeight1);
                 
                 // Resim 2'yi ekle (Grafikler)
                 const ratio2 = canvas2.height / canvas2.width;
@@ -324,9 +326,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Eğer ikinci resim sayfaya sığmıyorsa yeni sayfa ekle
                 if (imgHeight1 + imgHeight2 + margin * 2 > pdfHeight) {
                     pdf.addPage();
-                    pdf.addImage(imgData2, 'PNG', margin, margin, pdfWidth - margin * 2, imgHeight2);
+                    pdf.addImage(imgData2, 'PNG', margin, margin + 25, pdfWidth - margin * 2, imgHeight2);
                 } else {
-                    pdf.addImage(imgData2, 'PNG', margin, imgHeight1 + margin + 5, pdfWidth - margin * 2, imgHeight2);
+                    pdf.addImage(imgData2, 'PNG', margin, imgHeight1 + margin + 25, pdfWidth - margin * 2, imgHeight2);
                 }
                 
                 // --- YENİ BÖLÜM: Header ve Footer Ekleme ---
@@ -339,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Header (Başlık)
                     pdf.setFontSize(12);
                     pdf.setTextColor(40);
-                    pdf.text('Liman Operasyon Raporu', pdfWidth / 2, 10, { align: 'center' });
+                    pdf.text('Liman Gemi Operasyon Raporu',  pdfWidth / 2, 30, { align: 'center' });
 
                     // Footer (Alt Bilgi)
                     pdf.setFontSize(8);
@@ -353,6 +355,40 @@ document.addEventListener('DOMContentLoaded', function () {
                     pdf.text(pageStr, pdfWidth - margin, pdfHeight - 10, { align: 'right' });
                 }
                 // --- YENİ BÖLÜM SONU ---
+
+                // --- LOGO EKLEME ---
+                const logoWidth = 30;
+const logoHeight = 15;
+const logoY = 5; // üstten boşluk
+
+// 4 logo için eşit aralıklı X konumları hesaplanır
+const logoCount = 4;
+const logoSpacing = (pdfWidth - 2 * margin - logoCount * logoWidth) / (logoCount - 1);
+
+let logoX = margin;
+
+if (typeof logoRmt !== 'undefined') {
+    pdf.addImage(logoRmt, 'PNG', logoX, logoY, logoWidth, logoHeight);
+}
+logoX += logoWidth + logoSpacing;
+if (typeof logoKagem !== 'undefined') {
+    pdf.addImage(logoKagem, 'PNG', logoX, logoY, logoWidth, logoHeight);
+}
+
+logoX += logoWidth + logoSpacing;
+if (typeof logoCelebi !== 'undefined') {
+    pdf.addImage(logoCelebi, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+}
+
+logoX += logoWidth + logoSpacing;
+if (typeof logoKaresi !== 'undefined') {
+    pdf.addImage(logoKaresi, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+}
+
+
+
+
+                // --- LOGO EKLEME SONU ---
 
                 pdf.save(fileName);
 
