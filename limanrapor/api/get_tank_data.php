@@ -100,12 +100,16 @@ try {
             $op_params[':start_date'] = $params[':start_date'];
             $op_params[':end_date'] = $params[':end_date'];
         }
-        $op_sql .= " ORDER BY Gemi_no, kayit_tarihi ASC";
+        // ÖNEMLİ: Doğru eşleştirme için kayıtları sadece zamana göre sırala
+        $op_sql .= " ORDER BY kayit_tarihi ASC";
+        
         $op_stmt = $pdo->prepare($op_sql);
         $op_stmt->execute($op_params);
         $operations = $op_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $started_ops = [];
+        // --- YENİ VE DOĞRU EŞLEŞTİRME MANTIĞI ---
+        // Her bir Gemi_no için bir başlangıç kayıtları yığını tut
+        $started_ops_stack = [];
         
         $find_closest_sql = "
             SELECT tarihsaat 
@@ -118,10 +122,17 @@ try {
 
         foreach ($operations as $op) {
             $op_key = $op['Gemi_no'];
+
             if ($op['islem'] === 'basla') {
-                $started_ops[$op_key] = $op;
-            } elseif ($op['islem'] === 'dur' && isset($started_ops[$op_key])) {
-                $start_op = $started_ops[$op_key];
+                // Bu Gemi_no için bir yığın oluştur ve başlangıcı ekle
+                if (!isset($started_ops_stack[$op_key])) {
+                    $started_ops_stack[$op_key] = [];
+                }
+                $started_ops_stack[$op_key][] = $op;
+            } 
+            elseif ($op['islem'] === 'dur' && isset($started_ops_stack[$op_key]) && !empty($started_ops_stack[$op_key])) {
+                // Bu Gemi_no için yığındaki en eski başlangıcı al (FIFO mantığı)
+                $start_op = array_shift($started_ops_stack[$op_key]);
 
                 $closest_stmt->execute([':tank_id' => $tank_id, ':op_time' => $start_op['kayit_tarihi']]);
                 $closest_start_row = $closest_stmt->fetch(PDO::FETCH_ASSOC);
@@ -134,14 +145,21 @@ try {
                     $closest_end = date('d.m H:i', strtotime($closest_end_row['tarihsaat']));
 
                     if ($closest_start !== $closest_end) {
-                        // --- DEĞİŞİKLİK: Dikey çizgiler için ECharts formatı ---
-                        
+                        // --- DEĞİŞİKLİK: Etiket pozisyonlarını güncelliyoruz ---
+
                         // Yeşil Başlangıç Çizgisi
                         $response_data['operations_data'][] = [
                             'name' => "{$start_op['gemi_adi']} (Başlangıç)",
                             'xAxis' => $closest_start,
                             'lineStyle' => ['color' => '#28a745', 'width' => 2, 'type' => 'dashed'],
-                            'label' => ['formatter' => '{b}', 'position' => 'insideStartTop', 'color' => '#28a745']
+                            'label' => [
+                                'formatter' => '{b}',
+                                'position' => 'insideStartTop', // Pozisyonu eski haline getir
+                                'color' => '#fff',
+                                'backgroundColor' => '#28a745',
+                                'padding' => [3, 6],
+                                'borderRadius' => 4
+                            ]
                         ];
 
                         // Kırmızı Bitiş Çizgisi
@@ -149,11 +167,17 @@ try {
                             'name' => "{$start_op['gemi_adi']} (Bitiş)",
                             'xAxis' => $closest_end,
                             'lineStyle' => ['color' => '#dc3545', 'width' => 2, 'type' => 'dashed'],
-                            'label' => ['formatter' => '{b}', 'position' => 'insideEndTop', 'color' => '#dc3545']
+                            'label' => [
+                                'formatter' => '{b}',
+                                'position' => 'insideEndTop', // Pozisyonu eski haline getir
+                                'color' => '#fff',
+                                'backgroundColor' => '#dc3545',
+                                'padding' => [3, 6],
+                                'borderRadius' => 4
+                            ]
                         ];
                     }
                 }
-                unset($started_ops[$op_key]);
             }
         }
     }
