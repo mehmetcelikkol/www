@@ -1,7 +1,6 @@
 <?php
-// filepath: c:\wamp64\www\limanrapor\pages\gemi_bosaltma.php
-// Gemi Boşaltma Sayfası - Toplam Operasyonlar
-
+// --- BU ESKİ VE GEREKSİZ BLOK SİLİNECEK ---
+/*
 $data = [];
 $gemilog_results = [];
 $error_message = null;
@@ -30,153 +29,236 @@ if ($pdo) {
         $error_message = "Veri çekme hatası: " . $e->getMessage();
     }
 }
+*/
+?>
+
+<?php
+$operations = [];
+$open_operations = [];
+$error_message = null; 
+
+if ($pdo) {
+    try {
+        // Dropdown için TÜM 'basla' operasyonlarını listele
+        $sql_all = "SELECT id, gemi_adi, Gemi_no, tonaj, kayit_tarihi 
+                    FROM gemioperasyon 
+                    WHERE islem = 'basla' 
+                    ORDER BY kayit_tarihi DESC LIMIT 100";
+        $stmt_all = $pdo->prepare($sql_all);
+        $stmt_all->execute();
+        $operations = $stmt_all->fetchAll(PDO::FETCH_ASSOC);
+
+        // Açık operasyonları bul (kendinden sonra 'dur' kaydı olmayan 'basla' kayıtları)
+        $sql_open = "SELECT g_start.id, g_start.gemi_adi, g_start.Gemi_no, g_start.kayit_tarihi
+                     FROM gemioperasyon AS g_start
+                     WHERE g_start.islem = 'basla' AND NOT EXISTS (
+                        SELECT 1 FROM gemioperasyon AS g_stop 
+                        WHERE g_stop.Gemi_no = g_start.Gemi_no 
+                        AND g_stop.islem = 'dur' 
+                        AND g_stop.kayit_tarihi > g_start.kayit_tarihi
+                     )
+                     ORDER BY g_start.kayit_tarihi DESC";
+        $stmt_open = $pdo->prepare($sql_open);
+        $stmt_open->execute();
+        $open_operations = $stmt_open->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch(PDOException $e) {
+        $error_message = "Operasyon listesi çekilemedi: " . $e->getMessage();
+    }
+}
 ?>
 
 <?php if ($error_message): ?>
-    <div class="error">
-        <?= htmlspecialchars($error_message) ?>
+    <div class="error" style="background-color: #f8d7da; color: #721c24; padding: 1rem; border: 1px solid #f5c6cb; border-radius: .25rem; margin-bottom: 1rem;">
+        <strong>Hata:</strong> <?= htmlspecialchars($error_message) ?>
     </div>
 <?php endif; ?>
 
-<!-- Ana Operasyonlar Tablosu -->
-<div class="data-section">
+<!-- Filtreler ve İstatistikler Alanı (YENİDEN DÜZENLENDİ) -->
+<div id="op-filters" class="data-section" style="margin-top: 1.5rem;">
     <div class="data-header">
-        <h3>🚢 Gemi Boşaltma Operasyonları</h3>
-        <div class="header-actions">
-            <span class="data-count"><?= count($data) ?> kayıt</span>
-            <button class="export-btn" onclick="window.print()">📄 Yazdır</button>
+        <h3>🚢 Gemi Operasyon Analizi <small id="op-title-details" style="font-weight: normal; color: #475569;"></small></h3>
+    </div>
+    <div class="op-grid">
+        <!-- Sol Sütun -->
+        <div>
+            <div class="filter-card">
+                <strong>İncelenecek Operasyonu Seçin:</strong>
+                <select id="operation-selector" class="form-select" style="width: 100%; margin-top: 0.5rem;">
+                    <option value="" selected>Lütfen bir operasyon seçin...</option>
+                    <?php foreach ($operations as $op): ?>
+                        <option value="<?= $op['id'] ?>">
+                            <?= htmlspecialchars($op['gemi_adi']) ?> (<?= htmlspecialchars($op['Gemi_no']) ?>) - [<?= date('d.m.Y H:i', strtotime($op['kayit_tarihi'])) ?>]
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- Açık Operasyonlar Listesi (YENİ YER) -->
+            <?php if (!empty($open_operations)): ?>
+            <div id="open-ops-list" style="margin-top: 1rem; padding: 1rem; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                <strong style="font-size: .9rem; color: #0c4a6e;">Devam Eden Operasyonlar:</strong>
+                <ul style="list-style-type: none; padding-left: 0; margin-top: 0.5rem; font-size: 0.9rem;">
+                    <?php foreach ($open_operations as $op): ?>
+                        <li style="padding: 5px 0; border-bottom: 1px solid #e0f2fe;">
+                            <a href="#" class="open-op-link" data-op-id="<?= $op['id'] ?>" style="text-decoration: none; color: #0369a1; font-weight: 600;">
+                                <?= htmlspecialchars($op['gemi_adi']) ?> (<?= htmlspecialchars($op['Gemi_no']) ?>)
+                            </a>
+                            <span style="float: right; color: #38bdf8;"><?= date('d.m H:i', strtotime($op['kayit_tarihi'])) ?>'den beri</span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Sağ Sütun -->
+        <div id="stats-container" class="stats-card" style="display: none;">
+            <div class="stat-item"><span>Başlangıç:</span><strong id="stat-start-time">-</strong></div>
+            <div class="stat-item"><span>Bitiş:</span><strong id="stat-end-time">-</strong></div>
+            <!-- YENİ ALAN -->
+            <div class="stat-item"><span>Dur/Kalk Sayısı:</span><strong id="stat-stop-start">-</strong></div>
+            <div class="stat-item"><span>Ort. Debi:</span><strong id="stat-avg-flow">- Ton/h</strong></div>
+            <div class="stat-item"><span>Toplam Miktar:</span><strong id="stat-total">- Ton</strong></div>
+            <div class="stat-item"><span>Akış Süresi:</span><strong id="stat-flow-time">- dk</strong></div>
+            <div class="stat-item"><span>Durma Süresi:</span><strong id="stat-stop-time">- dk</strong></div>
         </div>
     </div>
-    
-    <?php if (!empty($data)): ?>
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Rıhtım</th>
-                    <th>Zaman</th>
-                    <th>Sıcaklık (°C)</th>
-                    <th>Debi (T/h)</th>
-                    <th>Yoğunluk (kg/L)</th>
-                    <th>Operasyon Toplam (Ton)</th>
-                    <th>Genel Toplam (Ton)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($data as $row): ?>
-                    <?php 
-                    // Sensör adını rıhtım ismiyle değiştir
-                    $rihtim_adi = '';
-                    if ($row['sensor_adi'] === 'gflow1') {
-                        $rihtim_adi = 'Rıhtım 7';
-                    } elseif ($row['sensor_adi'] === 'gflow2') {
-                        $rihtim_adi = 'Rıhtım 8';
-                    } else {
-                        $rihtim_adi = $row['sensor_adi'] ?? '';
-                    }
-                    ?>
-                    <tr>
-                        <td class="sensor-name"><?= htmlspecialchars($rihtim_adi) ?></td>
-                        <td><?= htmlspecialchars(date('d.m.Y H:i:s', strtotime($row['okuma_zamani'] ?? ''))) ?></td>
-                        <td class="amount"><?= number_format($row['sicaklik'] ?? 0, 1, ',', '.') ?></td>
-                        <td class="amount" style="font-weight: bold; color: #c53030;"><?= number_format($row['debi'] ?? 0, 2, ',', '.') ?></td>
-                        <td class="amount"><?= number_format($row['yogunluk'] ?? 0, 3, ',', '.') ?></td>
-                        <td class="amount"><?= number_format($row['operasyon_toplam'] ?? 0, 2, ',', '.') ?></td>
-                        <td class="amount"><?= number_format($row['toplam'] ?? 0, 2, ',', '.') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php else: ?>
-    <div class="empty-state">
-        <h3>Veri bulunamadı</h3>
-        <p>Seçilen tarih aralığında gemi boşaltma operasyonu bulunamadı.</p>
-        <small>Tarih aralığı: <?= $start_date ?> - <?= $end_date ?></small>
-    </div>
-    <?php endif; ?>
 </div>
 
-<!-- Gemi Log Kayıtları -->
-<?php if (!empty($gemilog_results)): ?>
-<div class="data-section" style="margin-top: 2rem;">
-    <div class="data-header">
-        <h3>🚢 Gemi Log Kayıtları</h3>
-        <div class="header-actions">
-            <span class="data-count"><?= count($gemilog_results) ?> kayıt</span>
-        </div>
-    </div>
-    
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Gemi Adı</th>
-                    <th>Durum</th>
-                    <th>Tarih/Saat</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($gemilog_results as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['id'] ?? '') ?></td>
-                        <td class="sensor-name"><?= htmlspecialchars($row['gemi_adi'] ?? '') ?></td>
-                        <td>
-                            <?php if (($row['aktif_yon'] ?? 0) == 1): ?>
-                                <span class="status-badge status-active">Aktif</span>
-                            <?php else: ?>
-                                <span class="status-badge status-inactive">Pasif</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= htmlspecialchars(date('d.m.Y H:i:s', strtotime($row['tarihsaat'] ?? ''))) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-    
-    <!-- İstatistikler -->
-    <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; padding: 1.5rem; margin: 1rem; border-radius: 8px;">
-        <h4>📊 Gemi Log İstatistikleri</h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
-            <div><strong>Toplam Kayıt:</strong> <?= count($gemilog_results) ?></div>
-            <div><strong>Aktif Gemiler:</strong> <?= count(array_filter($gemilog_results, function($r) { return ($r['aktif_yon'] ?? 0) == 1; })) ?></div>
-            <div><strong>Veri Aralığı:</strong> Son 100 kayıt</div>
-            <div><strong>Son Güncelleme:</strong> <?= date('d.m.Y H:i:s') ?></div>
-        </div>
-    </div>
+<!-- Grafik Alanı -->
+<div class="data-section" id="chart-section" style="margin-top: 1.5rem; display: none;">
+    <div id="charts-container"></div>
+    <div id="chart-status" class="empty-state" style="padding: 40px 20px;"></div>
 </div>
-<?php endif; ?>
 
-<!-- Operasyon İstatistikleri -->
-<?php if (!empty($data)): ?>
-<div style="background: linear-gradient(135deg, #00b894 0%, #00a085 100%); color: white; padding: 1.5rem; margin: 2rem 0; border-radius: 8px;">
-    <h4>📊 Gemi Boşaltma İstatistikleri</h4>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        <?php
-        $total_tonnage = array_sum(array_column($data, 'toplam'));
-        $avg_flow = count($data) > 0 ? array_sum(array_column($data, 'debi')) / count($data) : 0;
-        $operations_today = count(array_filter($data, function($row) {
-            return date('Y-m-d', strtotime($row['okuma_zamani'] ?? '')) === date('Y-m-d');
-        }));
-        ?>
-        <div>
-            <strong>Toplam Kayıt:</strong><br>
-            <span style="font-size: 1.5em;"><?= count($data) ?></span> adet
-        </div>
-        <div>
-            <strong>Bugünkü Operasyon:</strong><br>
-            <span style="font-size: 1.5em;"><?= $operations_today ?></span> adet
-        </div>
-        <div>
-            <strong>Toplam Tonaj:</strong><br>
-            <span style="font-size: 1.5em;"><?= number_format($total_tonnage, 0, ',', '.') ?></span> ton
-        </div>
-        <div>
-            <strong>Ortalama Debi:</strong><br>
-            <span style="font-size: 1.5em;"><?= number_format($avg_flow, 1, ',', '.') ?></span> T/h
-        </div>
-    </div>
-</div>
-<?php endif; ?>
+<!-- CSS Stilleri -->
+<style>
+.op-grid{display:grid;grid-template-columns:1fr 2fr;gap:1rem;align-items:start;}.filter-card{background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;box-shadow:0 1px 2px 0 rgba(0,0,0,.05)}
+/* DEĞİŞİKLİK: stats-card stilleri güncellendi */
+.stats-card{background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;box-shadow:0 1px 2px 0 rgba(0,0,0,.05);display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;min-height:100%;align-content:center;}
+.stat-item{display:flex;flex-direction:column;gap:.25rem}.stat-item span{font-size:.8rem;color:#64748b}.stat-item strong{font-size:1.1rem;font-weight:600;color:#1e293b}.form-select{padding:8px 12px;border:1px solid #ccc;border-radius:4px;background-color:white}.chart-wrapper{margin-bottom:30px}
+@media(max-width: 992px) { .op-grid, .stats-card { grid-template-columns: 1fr; } }
+</style>
+
+<!-- Script Bölümü -->
+<script src="assets/js/echarts.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const opSelector = document.getElementById('operation-selector');
+    const chartSection = document.getElementById('chart-section');
+    const chartsContainer = document.getElementById('charts-container');
+    const chartStatus = document.getElementById('chart-status');
+    const statsContainer = document.getElementById('stats-container');
+    // --- DEĞİŞİKLİK: Yeni başlık alanı için değişken ---
+    const opTitleDetails = document.getElementById('op-title-details');
+    let activeChartInstances = [];
+
+    function showStatus(message, isError = false) {
+        chartSection.style.display = 'block';
+        chartsContainer.innerHTML = '';
+        chartStatus.style.display = 'block';
+        chartStatus.innerHTML = `<p style="${isError ? 'color:red;' : ''}">${message}</p>`;
+        statsContainer.style.display = 'none';
+        opTitleDetails.textContent = '';
+    }
+
+    function updateStatistics(stats) {
+        document.getElementById('stat-start-time').textContent = stats.start_time;
+        document.getElementById('stat-end-time').textContent = stats.end_time;
+        document.getElementById('stat-avg-flow').textContent = `${stats.avg_flow_rate} Ton/h`;
+        document.getElementById('stat-total').textContent = `${stats.total_transferred} Ton`;
+        document.getElementById('stat-flow-time').textContent = `${stats.flow_minutes} dk`;
+        document.getElementById('stat-stop-time').textContent = `${stats.stop_minutes} dk`;
+        // YENİ ALANI GÜNCELLE
+        document.getElementById('stat-stop-start').textContent = stats.stop_start_count;
+        statsContainer.style.display = 'grid';
+    }
+
+    // --- DEĞİŞİKLİK: Yeni başlık güncelleme fonksiyonu ---
+    function updateTitle(details) {
+        if (details && details.gemi_adi) {
+            opTitleDetails.textContent = `- ${details.gemi_adi} (${details.gemi_no}) | ${details.tonaj.toLocaleString()} Ton`;
+        } else {
+            opTitleDetails.textContent = '';
+        }
+    }
+
+    async function fetchAndRender(op_id) {
+        showStatus('Veriler yükleniyor, lütfen bekleyin...');
+        activeChartInstances.forEach(chart => chart.dispose());
+        activeChartInstances = [];
+
+        try {
+            const url = `api/get_gemi_op_data.php?op_id=${op_id}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Sunucu hatası: ${response.statusText}`);
+            
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            // --- DEĞİŞİKLİK: Koşulsuz olarak güncelle ---
+            updateTitle(data.operation_details);
+            updateStatistics(data.statistics);
+
+            const chartData = data.chart_data;
+            const sensorNames = Object.keys(chartData);
+            chartStatus.style.display = 'none';
+
+            sensorNames.forEach(sensorName => {
+                const sensorData = chartData[sensorName];
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = 'chart-wrapper';
+                chartWrapper.style.height = '400px';
+                chartsContainer.appendChild(chartWrapper);
+                const chart = echarts.init(chartWrapper);
+                activeChartInstances.push(chart);
+
+                chart.setOption({
+                    title: { text: (sensorName.toLowerCase() === 'gflow1' ? 'Rıhtım 7' : 'Rıhtım 8'), left: 'center' },
+                    tooltip: { trigger: 'axis' },
+                    legend: { top: 30, data: ['Debi', 'Sıcaklık', 'Yoğunluk'] },
+                    grid: { top: 70, left: '5%', right: '5%', bottom: '80px' },
+                    xAxis: { type: 'category', data: sensorData.time },
+                    yAxis: [{ type: 'value', name: 'Debi (Ton/h)' }, { type: 'value', name: 'Sıcaklık/Yoğunluk', splitLine: { show: false } }],
+                    series: [
+                        { name: 'Debi', type: 'line', yAxisIndex: 0, data: sensorData.debi, smooth: true },
+                        { name: 'Sıcaklık', type: 'line', yAxisIndex: 1, data: sensorData.sicaklik, smooth: true },
+                        { name: 'Yoğunluk', type: 'line', yAxisIndex: 1, data: sensorData.yogunluk, smooth: true }
+                    ],
+                    dataZoom: [{ type: 'slider', bottom: '10px' }, { type: 'inside' }]
+                });
+            });
+            if (activeChartInstances.length > 1) echarts.connect(activeChartInstances);
+        } catch (error) {
+            showStatus(`Veriler alınırken bir sorun oluştu: ${error.message}`, true);
+        }
+    }
+
+    opSelector.addEventListener('change', () => {
+        const selectedOpId = opSelector.value;
+        if (selectedOpId) {
+            fetchAndRender(selectedOpId);
+        } else {
+            chartSection.style.display = 'none';
+            statsContainer.style.display = 'none';
+            opTitleDetails.textContent = '';
+        }
+    });
+
+    // --- YENİ KOD: Açık operasyon linklerine tıklama olayı ---
+    const openOpLinks = document.querySelectorAll('.open-op-link');
+    openOpLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault(); // Sayfanın en üste gitmesini engelle
+            const opId = this.getAttribute('data-op-id');
+            if (opId) {
+                opSelector.value = opId; // Dropdown'ı güncelle
+                fetchAndRender(opId);   // Verileri yükle
+            }
+        });
+    });
+    
+    window.addEventListener('resize', () => activeChartInstances.forEach(chart => chart.resize()));
+});
+</script>

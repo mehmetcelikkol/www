@@ -1,0 +1,15 @@
+[2025-11-16 19:35:08] --- SCRIPT BAŞLADI (SAYAC Mantığı ile) ---
+[2025-11-16 19:35:08] İstek geldi. op_id: 11
+[2025-11-16 19:35:08] Hesaplanan Zaman Aralığı: 2025-11-06 16:45:40 -> 2025-11-07 23:25:21
+[2025-11-16 19:35:08] Sorgu Parametreleri (params):
+[2025-11-16 19:35:08] Array
+(
+    [:start_date] => 2025-11-06 16:45:40
+    [:end_date] => 2025-11-07 23:25:21
+)
+
+[2025-11-16 19:35:08] 2. Adım: Dur/Kalk sayımı için akış verileri çekiliyor.
+[2025-11-16 19:35:08] Çekilen akış kaydı sayısı: 1454
+[2025-11-16 19:35:08] Hesaplanan Dur/Kalk Sayısı: 1
+[2025-11-16 19:35:08] 3. Adım: Diğer istatistikler sorgulanıyor.
+[2025-11-16 19:35:08] --- SCRIPT BAŞARIYLA TAMAMLANDI ---

@@ -49,11 +49,14 @@ $end_date = date('Y-m-d');
 // Debug modu
 $debug_mode = true;
 
-// Tablo isimleri
+/*
+// --- SORUNUN KAYNAĞI OLAN BU BLOK YORUM SATIRI HALİNE GETİRİLDİ ---
+// Tablo isimlerini Türkçe karşılıkları
 $table_names_tr = [
     'tank_verileri' => 'Tank Seviyeleri',
-    'akis_hizi' => 'Akış Hızı Grafiği', 
+    'akis_hizi' => 'Akış Hızı Grafiği',
     'gemi_bosaltma' => 'Gemi Boşaltma Operasyonları',
     'tir_islemleri' => 'Tır İşlemleri'
 ];
+*/
 ?>
