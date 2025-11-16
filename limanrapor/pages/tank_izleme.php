@@ -1,7 +1,7 @@
 <?php
 // filepath: c:\wamp64\www\limanrapor\pages\tank_izleme.php
 
-// --- 1. Anlık Tank Verilerini Çek ---
+// --- 1. Anlık Tank Verilerini Çek (Operasyonlar kaldırıldı) ---
 $tank_latest_data = [];
 $available_tanks = [];
 $error_message = null;
@@ -19,35 +19,8 @@ try {
     }
 } catch(PDOException $e) { $error_message = "Veri çekme hatası: " . $e->getMessage(); }
 
-
-// --- 2. Tamamlanmış Operasyonları Çek ---
-$completed_operations = [];
-try {
-    $op_sql = "SELECT gemi_adi, Gemi_no, tonaj, islem, kayit_tarihi FROM gemioperasyon ORDER BY kayit_tarihi DESC";
-    $op_stmt = $pdo->query($op_sql);
-    $all_ops = $op_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $started_ops_stack = [];
-    // Operasyonları tersten (yeniden eskiye) işleyerek doğru eşleştirme yapalım
-    foreach (array_reverse($all_ops) as $op) {
-        $op_key = $op['Gemi_no'];
-        if ($op['islem'] === 'basla') {
-            if (!isset($started_ops_stack[$op_key])) $started_ops_stack[$op_key] = [];
-            $started_ops_stack[$op_key][] = $op;
-        } elseif ($op['islem'] === 'dur' && isset($started_ops_stack[$op_key]) && !empty($started_ops_stack[$op_key])) {
-            $start_op = array_shift($started_ops_stack[$op_key]);
-            $completed_operations[] = [
-                'gemi_adi' => $start_op['gemi_adi'],
-                'tonaj' => $start_op['tonaj'],
-                'start_time' => $start_op['kayit_tarihi'],
-                'end_time' => $op['kayit_tarihi']
-            ];
-        }
-    }
-} catch (PDOException $e) {
-    // Bu hata kritik değil, sadece operasyon listesi boş kalır.
-}
-
+// --- 2. Tamamlanmış Operasyonları Çek (KALDIRILDI) ---
+// Bu işlem artık AJAX ile yapılacak.
 
 $months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 $current_year = date('Y');
@@ -79,7 +52,7 @@ $current_year = date('Y');
 </div>
 <?php endif; ?>
 
-<!-- Filtreler Alanı (Görsel İyileştirme) -->
+<!-- Filtreler Alanı (HTML basitleştirildi) -->
 <div id="time-filters" class="data-section" style="display:none; margin-top: 1.5rem;">
     <div class="data-header"><h3 id="filter-title">Tarih Aralığı Seçin</h3></div>
     <div class="filters-main-container">
@@ -115,32 +88,21 @@ $current_year = date('Y');
         </div>
         <!-- Sağ Sütun: Operasyonlar ve Seçenekler -->
         <div class="filter-options">
-            <?php if (!empty($completed_operations)): ?>
-            <div class="filter-card">
-                <strong>Tamamlanmış Operasyonlar:</strong>
-                <div class="operations-list-box">
-                    <?php foreach ($completed_operations as $op): ?>
-                        <button class="filter-btn operation-btn" 
-                                data-start="<?= date('Y-m-d', strtotime($op['start_time'])) ?>" 
-                                data-end="<?= date('Y-m-d', strtotime($op['end_time'])) ?>">
-                            <?= htmlspecialchars($op['gemi_adi']) ?> (<?= date('d.m.y', strtotime($op['start_time'])) ?>)
-                        </button>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
             <div class="filter-card">
                 <strong>Ek Seçenekler:</strong>
                 <div class="checkbox-wrapper">
+                    <!-- DEĞİŞİKLİK: "checked" özelliğini kaldırın -->
                     <input type="checkbox" id="show-operations-checkbox">
-                    <label for="show-operations-checkbox">Operasyon Çizgilerini Göster</label>
+                    <label for="show-operations-checkbox">Operasyonları Göster</label>
                 </div>
             </div>
+            <!-- Operasyon listesi dinamik olarak buraya eklenecek -->
+            <div id="operations-container" style="display: none;"></div>
         </div>
     </div>
 </div>
 
-<!-- Grafik Alanı (Aynı) -->
+<!-- Grafik Alanı ve CSS (Aynı) -->
 <div class="data-section" id="tank-chart-section" style="margin-top: 1.5rem; display: none;">
     <div id="chartContainer">
         <div id="chartRadar" style="width: 100%; height: 350px;"></div>
@@ -212,17 +174,20 @@ $current_year = date('Y');
 }
 </style>
 
-<!-- JavaScript (Yeni Event Listener Eklendi) -->
+<!-- JavaScript (AJAX mantığı eklendi) -->
 <script src="assets/js/echarts.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const showOperationsCheckbox = document.getElementById('show-operations-checkbox');
+    const operationsContainer = document.getElementById('operations-container');
+    let operationsLoaded = false; // Operasyonların yüklenip yüklenmediğini takip et
+
     // Değişkenler ve fonksiyonlar (renderCharts, showStatus vb.) aynı kalacak
     const timeFilters = document.getElementById('time-filters');
     const chartSection = document.getElementById('tank-chart-section');
     const chartContainer = document.getElementById('chartContainer');
     const chartStatus = document.getElementById('chart-status');
     const filterTitle = document.getElementById('filter-title');
-    const showOperationsCheckbox = document.getElementById('show-operations-checkbox');
     let activeTankId = null;
     let lastUsedUrl = null;
 
@@ -385,6 +350,78 @@ document.addEventListener('DOMContentLoaded', function () {
             showStatus(`Grafik verileri alınırken bir sorun oluştu. Detay: ${error.message}`, true);
         }
     }
+
+    // YENİ: Operasyonları AJAX ile çeken ve listeyi oluşturan fonksiyon
+    async function loadOperations() {
+        if (operationsLoaded) return; // Zaten yüklendiyse tekrar yükleme
+
+        operationsContainer.innerHTML = '<div class="filter-card"><p>Operasyonlar yükleniyor...</p></div>';
+        operationsContainer.style.display = 'block';
+
+        try {
+            const response = await fetch('api/get_operations_list.php');
+            if (!response.ok) throw new Error('Operasyon listesi sunucudan alınamadı.');
+            
+            const operations = await response.json();
+            operationsLoaded = true;
+
+            if (operations.length === 0) {
+                operationsContainer.innerHTML = '<div class="filter-card"><p>Tamamlanmış operasyon bulunamadı.</p></div>';
+                return;
+            }
+
+            let buttonsHtml = '';
+            operations.forEach(op => {
+                buttonsHtml += `<button class="filter-btn operation-btn" 
+                                        data-start="${op.start_time_ymd}" 
+                                        data-end="${op.end_time_ymd}">
+                                    ${escapeHtml(op.gemi_adi)} (${op.start_time_dmy})
+                                </button>`;
+            });
+
+            operationsContainer.innerHTML = `
+                <div class="filter-card">
+                    <strong>Tamamlanmış Operasyonlar:</strong>
+                    <div class="operations-list-box">${buttonsHtml}</div>
+                </div>`;
+
+            // Yeni eklenen butonlara event listener ata
+            operationsContainer.querySelectorAll('.operation-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    handleActiveButton(e.currentTarget);
+                    const startDate = button.getAttribute('data-start');
+                    const endDate = button.getAttribute('data-end');
+                    fetchAndRenderCharts(`api/get_tank_data.php?tank_id=${activeTankId}&range=custom&start=${startDate}&end=${endDate}`);
+                });
+            });
+
+        } catch (error) {
+            operationsContainer.innerHTML = `<div class="filter-card"><p style="color:red;">Hata: ${error.message}</p></div>`;
+        }
+    }
+    
+    // HTML'den kaçış için yardımcı fonksiyon
+    function escapeHtml(unsafe) {
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
+    // "Operasyonları Göster" checkbox'ı değiştiğinde
+    showOperationsCheckbox.addEventListener('change', (e) => {
+        const isChecked = e.currentTarget.checked;
+        if (isChecked) {
+            loadOperations(); // Operasyonları yükle
+        } else {
+            operationsContainer.style.display = 'none'; // Listeyi gizle
+        }
+        if (lastUsedUrl) {
+            fetchAndRenderCharts(lastUsedUrl); // Grafik çizgilerini güncelle
+        }
+    });
 
     // --- Event Listener'ları Güncelle ---
 
