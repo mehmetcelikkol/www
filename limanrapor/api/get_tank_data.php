@@ -107,7 +107,6 @@ try {
 
         $started_ops = [];
         
-        // Tek bir optimize edilmiş SQL sorgusu hazırla
         $find_closest_sql = "
             SELECT tarihsaat 
             FROM tank_verileri
@@ -135,9 +134,22 @@ try {
                     $closest_end = date('d.m H:i', strtotime($closest_end_row['tarihsaat']));
 
                     if ($closest_start !== $closest_end) {
-                         $response_data['operations_data'][] = [
-                            ['name' => "{$start_op['gemi_adi']}\n({$start_op['tonaj']} ton)", 'xAxis' => $closest_start, 'itemStyle' => ['color' => 'rgba(10, 100, 255, 0.2)'], 'label' => ['color' => '#333', 'position' => 'insideTop', 'distance' => 10]],
-                            ['xAxis' => $closest_end]
+                        // --- DEĞİŞİKLİK: Dikey çizgiler için ECharts formatı ---
+                        
+                        // Yeşil Başlangıç Çizgisi
+                        $response_data['operations_data'][] = [
+                            'name' => "{$start_op['gemi_adi']} (Başlangıç)",
+                            'xAxis' => $closest_start,
+                            'lineStyle' => ['color' => '#28a745', 'width' => 2, 'type' => 'dashed'],
+                            'label' => ['formatter' => '{b}', 'position' => 'insideStartTop', 'color' => '#28a745']
+                        ];
+
+                        // Kırmızı Bitiş Çizgisi
+                        $response_data['operations_data'][] = [
+                            'name' => "{$start_op['gemi_adi']} (Bitiş)",
+                            'xAxis' => $closest_end,
+                            'lineStyle' => ['color' => '#dc3545', 'width' => 2, 'type' => 'dashed'],
+                            'label' => ['formatter' => '{b}', 'position' => 'insideEndTop', 'color' => '#dc3545']
                         ];
                     }
                 }

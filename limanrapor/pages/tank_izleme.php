@@ -158,29 +158,34 @@ document.addEventListener('DOMContentLoaded', function () {
         
         radarChart.resize(); basincChart.resize(); sicaklikChart.resize();
 
-        // Her grafik için temel seçenekleri al ve operasyon verisini ekle
+        // --- DEĞİŞİKLİK: markLine (dikey çizgiler) eklendi ---
+        const markLineData = {
+            symbol: 'none', // Çizginin ucundaki okları kaldır
+            data: data.operations_data || []
+        };
+
         const radarOptions = getBaseChartOptions();
         radarOptions.series[0].data = data.tank_data.radar_cm;
-        radarOptions.series[0].markArea = { data: data.operations_data || [] };
+        radarOptions.series[0].markLine = markLineData; // Çizgileri ekle
         radarOptions.title = { text: `Tank ${activeTankId} - Radar (cm)` };
         radarOptions.xAxis.data = data.tank_data.time;
         radarOptions.yAxis.axisLabel = { formatter: '{value} cm' };
         
         const basincOptions = getBaseChartOptions();
         basincOptions.series[0].data = data.tank_data.basinc_bar;
-        basincOptions.series[0].markArea = { data: data.operations_data || [] };
+        basincOptions.series[0].markLine = markLineData; // Çizgileri ekle
         basincOptions.title = { text: `Tank ${activeTankId} - Basınç (bar)` };
         basincOptions.xAxis.data = data.tank_data.time;
         basincOptions.yAxis.axisLabel = { formatter: '{value} bar' };
 
         const sicaklikOptions = getBaseChartOptions();
         sicaklikOptions.series[0].data = data.tank_data.sicaklik;
-        sicaklikOptions.series[0].markArea = { data: data.operations_data || [] };
+        sicaklikOptions.series[0].markLine = markLineData; // Çizgileri ekle
         sicaklikOptions.title = { text: `Tank ${activeTankId} - Sıcaklık (°C)` };
         sicaklikOptions.xAxis.data = data.tank_data.time;
         sicaklikOptions.yAxis.axisLabel = { formatter: '{value} °C' };
 
-        radarChart.setOption(radarOptions, true); // true -> önceki ayarları temizle
+        radarChart.setOption(radarOptions, true);
         basincChart.setOption(basincOptions, true);
         sicaklikChart.setOption(sicaklikOptions, true);
     }
@@ -193,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function fetchAndRenderCharts(url) {
         if (!activeTankId) return;
-        lastUsedUrl = url; // URL'yi sakla
+        lastUsedUrl = url;
         
         const showOps = showOperationsCheckbox.checked;
         const finalUrl = `${url}&show_operations=${showOps}`;
