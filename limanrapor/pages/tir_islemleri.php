@@ -1,42 +1,18 @@
 <?php
-// filepath: c:\wamp64\www\limanrapor\pages\tir_islemleri.php
 // Tır İşlemleri Sayfası
-
-$data = [];
-$error_message = null;
-
-if ($pdo) {
-    try {
-        $sql = "SELECT * FROM tirlar 
-                ORDER BY dolumbaslama DESC LIMIT 500";
-        
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute();
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-    } catch(PDOException $e) {
-        $error_message = "Veri çekme hatası: " . $e->getMessage();
-    }
-}
+// PHP veri çekme kodları buradan kaldırıldı. Sayfa artık dinamik olarak JS ile yüklenecek.
 ?>
-
-<?php if ($error_message): ?>
-    <div class="error">
-        <?= htmlspecialchars($error_message) ?>
-    </div>
-<?php endif; ?>
 
 <!-- Tır İşlemleri Tablosu -->
 <div class="data-section">
     <div class="data-header">
         <h3>🚛 Tır Yükleme İşlemleri</h3>
         <div class="header-actions">
-            <span class="data-count"><?= count($data) ?> kayıt</span>
+            <span class="data-count"><span id="stats-total-operations">0</span> kayıt</span>
             <button class="export-btn" onclick="window.print()">📄 Yazdır</button>
         </div>
     </div>
     
-    <?php if (!empty($data)): ?>
     <div class="table-container">
         <table class="data-table">
             <thead>
@@ -50,93 +26,28 @@ if ($pdo) {
                     <th>İşlem Süresi</th>
                 </tr>
             </thead>
-            <tbody>
-                <?php foreach ($data as $row): ?>
-                    <?php 
-                    // İşlem süresini hesapla
-                    $duration_text = '';
-                    if (!empty($row['dolumbaslama']) && !empty($row['dolumbitis'])) {
-                        $start = new DateTime($row['dolumbaslama']);
-                        $end = new DateTime($row['dolumbitis']);
-                        $duration = $start->diff($end);
-                        $duration_text = $duration->format('%H:%I:%S');
-                    } else {
-                        $duration_text = 'Devam ediyor...';
-                    }
-                    ?>
-                    <tr>
-                        <td class="plate-number"><?= htmlspecialchars($row['plaka'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['port'] ?? '') ?></td>
-                        <td><?= htmlspecialchars(date('d.m.Y H:i:s', strtotime($row['dolumbaslama'] ?? ''))) ?></td>
-                        <td>
-                            <?php if (!empty($row['dolumbitis'])): ?>
-                                <?= htmlspecialchars(date('d.m.Y H:i:s', strtotime($row['dolumbitis']))) ?>
-                            <?php else: ?>
-                                <span style="color: #f39c12; font-weight: bold;">Devam ediyor</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="amount"><?= number_format($row['toplam'] ?? 0, 0, ',', '.') ?> Kg</td>
-                        <td><?= htmlspecialchars($row['durdurma_sekli'] ?? 'Manuel') ?></td>
-                        <td><?= $duration_text ?></td>
-                    </tr>
-                <?php endforeach; ?>
+            <tbody id="tir-table-body">
+                <!-- Veriler JS ile buraya eklenecek -->
             </tbody>
         </table>
     </div>
-    <?php else: ?>
-    <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
-        </svg>
+    <div id="empty-state-container" style="display: none;" class="empty-state">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
         <h3>Veri bulunamadı</h3>
         <p>Sistemde herhangi bir tır yükleme operasyonu bulunamadı.</p>
-        <small>Veritabanında 'tirlar' tablosu boş veya mevcut değil.</small>
     </div>
-    <?php endif; ?>
 </div>
 
 <!-- Tır İstatistikleri -->
-<?php if (!empty($data)): ?>
 <div style="background: linear-gradient(135deg, #00b894 0%, #00a085 100%); color: white; padding: 1.5rem; margin: 2rem 0; border-radius: 8px;">
     <h4>📊 Tır İşlemleri İstatistikleri</h4>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        <?php
-        $total_weight = array_sum(array_column($data, 'toplam'));
-        $avg_weight = count($data) > 0 ? $total_weight / count($data) : 0;
-        $completed_operations = count(array_filter($data, function($row) {
-            return !empty($row['dolumbitis']);
-        }));
-        $ongoing_operations = count($data) - $completed_operations;
-        
-        // Bugünkü işlemler
-        $today_operations = count(array_filter($data, function($row) {
-            return date('Y-m-d', strtotime($row['dolumbaslama'] ?? '')) === date('Y-m-d');
-        }));
-        ?>
-        <div>
-            <strong>Toplam İşlem:</strong><br>
-            <span style="font-size: 1.5em;"><?= count($data) ?></span> adet
-        </div>
-        <div>
-            <strong>Tamamlanan:</strong><br>
-            <span style="font-size: 1.5em; color: #2ecc71;"><?= $completed_operations ?></span> adet
-        </div>
-        <div>
-            <strong>Devam Eden:</strong><br>
-            <span style="font-size: 1.5em; color: #f39c12;"><?= $ongoing_operations ?></span> adet
-        </div>
-        <div>
-            <strong>Bugünkü İşlem:</strong><br>
-            <span style="font-size: 1.5em;"><?= $today_operations ?></span> adet
-        </div>
-        <div>
-            <strong>Toplam Yüklenen:</strong><br>
-            <span style="font-size: 1.5em;"><?= number_format($total_weight, 0, ',', '.') ?></span> kg
-        </div>
-        <div>
-            <strong>Ortalama Yük:</strong><br>
-            <span style="font-size: 1.5em;"><?= number_format($avg_weight, 0, ',', '.') ?></span> kg
-        </div>
+        <div><strong>Toplam İşlem:</strong><br><span style="font-size: 1.5em;" id="stats-total-operations-card">0</span> adet</div>
+        <div><strong>Tamamlanan:</strong><br><span style="font-size: 1.5em; color: #2ecc71;" id="stats-completed">0</span> adet</div>
+        <div><strong>Devam Eden:</strong><br><span style="font-size: 1.5em; color: #f39c12;" id="stats-ongoing">0</span> adet</div>
+        <div><strong>Bugünkü İşlem:</strong><br><span style="font-size: 1.5em;" id="stats-today-ops">0</span> adet</div>
+        <div><strong>Toplam Yüklenen:</strong><br><span style="font-size: 1.5em;" id="stats-total-weight">0</span> kg</div>
+        <div><strong>Ortalama Yük:</strong><br><span style="font-size: 1.5em;" id="stats-avg-weight">0</span> kg</div>
     </div>
 </div>
 
@@ -144,20 +55,119 @@ if ($pdo) {
 <div style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; padding: 1.5rem; margin: 1rem 0; border-radius: 8px;">
     <h4>📅 Günlük Özet (<?= date('d.m.Y') ?>)</h4>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        <?php
-        $today_weight = array_sum(array_map(function($row) {
-            return date('Y-m-d', strtotime($row['dolumbaslama'] ?? '')) === date('Y-m-d') ? ($row['toplam'] ?? 0) : 0;
-        }, $data));
-        
-        $today_completed = count(array_filter($data, function($row) {
-            return date('Y-m-d', strtotime($row['dolumbaslama'] ?? '')) === date('Y-m-d') 
-                   && !empty($row['dolumbitis']);
-        }));
-        ?>
-        <div><strong>Bugün Yüklenen:</strong> <?= number_format($today_weight, 0, ',', '.') ?> kg</div>
-        <div><strong>Tamamlanan:</strong> <?= $today_completed ?> tır</div>
-        <div><strong>Ortalama Süre:</strong> ~2:30:00</div>
-        <div><strong>Son İşlem:</strong> <?= !empty($data) ? date('H:i', strtotime($data[0]['dolumbaslama'] ?? '')) : 'Yok' ?></div>
+        <div><strong>Bugün Yüklenen:</strong> <span id="stats-today-weight">0</span> kg</div>
+        <div><strong>Tamamlanan:</strong> <span id="stats-today-completed">0</span> tır</div>
+        <div><strong>Son İşlem:</strong> <span id="stats-last-op-time">Yok</span></div>
     </div>
 </div>
-<?php endif; ?>
+
+<!-- Grafikler -->
+<div id="tir-charts-section" style="margin-top: 2rem; background: #fff; padding: 1rem; border-radius: 8px;">
+    <div id="daily-total-chart" style="height: 400px; width: 100%;"></div>
+    <div id="chart-status" style="padding: 40px 20px; text-align: center; display: none;">Grafik için veri bulunamadı.</div>
+</div>
+
+<script src="assets/js/echarts.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dailyTotalChartElement = document.getElementById('daily-total-chart');
+    const dailyTotalChart = echarts.init(dailyTotalChartElement);
+
+    function formatNumber(num) {
+        return new Intl.NumberFormat('tr-TR').format(num);
+    }
+
+    function updateUI(response) {
+        const { data, stats } = response;
+
+        // İstatistikleri Güncelle
+        document.getElementById('stats-total-operations').innerText = stats.total_operations;
+        document.getElementById('stats-total-operations-card').innerText = stats.total_operations;
+        document.getElementById('stats-completed').innerText = stats.completed_operations;
+        document.getElementById('stats-ongoing').innerText = stats.ongoing_operations;
+        document.getElementById('stats-today-ops').innerText = stats.today_operations;
+        document.getElementById('stats-total-weight').innerText = formatNumber(stats.total_weight);
+        document.getElementById('stats-avg-weight').innerText = formatNumber(Math.round(stats.avg_weight));
+        document.getElementById('stats-today-weight').innerText = formatNumber(stats.today_weight);
+        document.getElementById('stats-today-completed').innerText = stats.today_completed;
+        document.getElementById('stats-last-op-time').innerText = stats.last_operation_time;
+
+        // Tabloyu Güncelle
+        const tableBody = document.getElementById('tir-table-body');
+        tableBody.innerHTML = ''; // Tabloyu temizle
+        if (data.length === 0) {
+            document.getElementById('empty-state-container').style.display = 'block';
+            return;
+        }
+        
+        data.forEach(row => {
+            let durationText = 'Devam ediyor...';
+            if (row.dolumbaslama && row.dolumbitis) {
+                const start = new Date(row.dolumbaslama);
+                const end = new Date(row.dolumbitis);
+                const diffMs = end - start;
+                const diffHrs = Math.floor(diffMs / 3600000);
+                const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                durationText = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}:${String(diffSecs).padStart(2, '0')}`;
+            }
+
+            const tr = `
+                <tr>
+                    <td class="plate-number">${row.plaka || ''}</td>
+                    <td>${row.port || ''}</td>
+                    <td>${row.dolumbaslama ? new Date(row.dolumbaslama).toLocaleString('tr-TR') : '-'}</td>
+                    <td>${row.dolumbitis ? new Date(row.dolumbitis).toLocaleString('tr-TR') : '<span style="color: #f39c12; font-weight: bold;">Devam ediyor</span>'}</td>
+                    <td class="amount">${formatNumber(row.toplam || 0)} Kg</td>
+                    <td>${row.durdurma_sekli || 'Manuel'}</td>
+                    <td>${durationText}</td>
+                </tr>
+            `;
+            tableBody.innerHTML += tr;
+        });
+
+        // Grafiği Güncelle
+        const dailyTotals = {};
+        data.forEach(row => {
+            if (row.dolumbaslama) {
+                const day = row.dolumbaslama.slice(0, 10);
+                dailyTotals[day] = (dailyTotals[day] || 0) + (parseFloat(row.toplam) || 0);
+            }
+        });
+
+        const days = Object.keys(dailyTotals).sort();
+        const totals = days.map(day => dailyTotals[day]);
+
+        dailyTotalChart.setOption({
+            title: { text: 'Günlük Toplam Yüklenen Miktar', left: 'center' },
+            tooltip: { trigger: 'axis', formatter: '{b}<br/>{a}: {c} kg' },
+            xAxis: { type: 'category', data: days },
+            yAxis: { type: 'value', name: 'Kg' },
+            series: [{ name: 'Toplam', type: 'bar', data: totals, color: '#00b894' }],
+            dataZoom: [{ type: 'slider', bottom: '10px' }, { type: 'inside' }],
+            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true }
+        });
+    }
+
+    function fetchData() {
+        fetch('api/get_tir_data.php')
+            .then(response => response.json())
+            .then(response => {
+                if (response.status === 'success') {
+                    updateUI(response);
+                } else {
+                    console.error('API Hatası:', response.message);
+                    document.getElementById('empty-state-container').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Hatası:', error);
+                document.getElementById('empty-state-container').style.display = 'block';
+            });
+    }
+
+    // Sayfa yüklendiğinde ve her 30 saniyede bir verileri yenile
+    fetchData();
+    setInterval(fetchData, 30000); 
+});
+</script>
