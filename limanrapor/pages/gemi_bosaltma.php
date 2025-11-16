@@ -128,6 +128,16 @@ if ($pdo) {
 
 <!-- Grafik Alanı -->
 <div class="data-section" id="chart-section" style="margin-top: 1.5rem; display: none;">
+    
+    <!-- DEĞİŞİKLİK BAŞLANGICI: Buton ve Başlık için yeni bir sarmalayıcı -->
+    <div class="data-header d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Operasyon Grafikleri</h5>
+        <button id="btn-save-pdf" class="btn btn-danger btn-sm">
+            <i class="fas fa-file-pdf"></i> PDF Olarak Kaydet
+        </button>
+    </div>
+    <!-- DEĞİŞİKLİK BİTİŞİ -->
+
     <div id="charts-container"></div>
     <div id="chart-status" class="empty-state" style="padding: 40px 20px;"></div>
 </div>
@@ -143,6 +153,13 @@ if ($pdo) {
 
 <!-- Script Bölümü -->
 <script src="assets/js/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+
+<!-- DEĞİŞİKLİK BAŞLANGICI: PDF Kütüphane Yolları Düzeltildi -->
+<script src="assets/js/libs/html2canvas.min.js"></script>
+<script src="assets/js/libs/jspdf.umd.min.js"></script>
+<!-- DEĞİŞİKLİK BİTİŞİ -->
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const opSelector = document.getElementById('operation-selector');
@@ -260,5 +277,97 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     
     window.addEventListener('resize', () => activeChartInstances.forEach(chart => chart.resize()));
+
+    // --- DEĞİŞİKLİK BAŞLANGICI: Header/Footer Eklemeli PDF Mantığı ---
+    document.getElementById('btn-save-pdf').addEventListener('click', function() {
+        console.log("PDF kaydetme işlemi başlatıldı.");
+
+        if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+            console.error("Hata: html2canvas veya jsPDF kütüphanesi yüklenemedi.");
+            alert("PDF kütüphaneleri yüklenemedi. Lütfen dosya yollarını kontrol edin.");
+            return;
+        }
+
+        const filtersElement = document.getElementById('op-filters');
+        const chartsElement = document.getElementById('chart-section');
+        
+        const gemiAdiText = document.getElementById('op-title-details').textContent;
+        const gemiAdi = gemiAdiText ? gemiAdiText.split('|')[0].replace('-', '').trim() : "Rapor";
+        const fileName = `${gemiAdi.replace(/ /g, '_')}_${new Date().toLocaleDateString('tr-TR')}.pdf`;
+
+        const pdfButton = document.getElementById('btn-save-pdf');
+        pdfButton.style.display = 'none';
+
+        html2canvas(filtersElement, { scale: 2, useCORS: true }).then(canvas1 => {
+            html2canvas(chartsElement, { scale: 2, useCORS: true }).then(canvas2 => {
+                
+                pdfButton.style.display = 'block';
+
+                const imgData1 = canvas1.toDataURL('image/png');
+                const imgData2 = canvas2.toDataURL('image/png');
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const margin = 15; // Kenar boşluğu
+
+                // Resim 1'i ekle (Filtreler)
+                const ratio1 = canvas1.height / canvas1.width;
+                const imgHeight1 = (pdfWidth - margin * 2) * ratio1;
+                pdf.addImage(imgData1, 'PNG', margin, margin, pdfWidth - margin * 2, imgHeight1);
+                
+                // Resim 2'yi ekle (Grafikler)
+                const ratio2 = canvas2.height / canvas2.width;
+                const imgHeight2 = (pdfWidth - margin * 2) * ratio2;
+
+                // Eğer ikinci resim sayfaya sığmıyorsa yeni sayfa ekle
+                if (imgHeight1 + imgHeight2 + margin * 2 > pdfHeight) {
+                    pdf.addPage();
+                    pdf.addImage(imgData2, 'PNG', margin, margin, pdfWidth - margin * 2, imgHeight2);
+                } else {
+                    pdf.addImage(imgData2, 'PNG', margin, imgHeight1 + margin + 5, pdfWidth - margin * 2, imgHeight2);
+                }
+                
+                // --- YENİ BÖLÜM: Header ve Footer Ekleme ---
+                const totalPages = pdf.internal.getNumberOfPages();
+                const today = new Date().toLocaleDateString('tr-TR');
+
+                for (let i = 1; i <= totalPages; i++) {
+                    pdf.setPage(i); // Sayfayı seç
+
+                    // Header (Başlık)
+                    pdf.setFontSize(12);
+                    pdf.setTextColor(40);
+                    pdf.text('Liman Operasyon Raporu', pdfWidth / 2, 10, { align: 'center' });
+
+                    // Footer (Alt Bilgi)
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(100);
+                    const pageStr = `Sayfa ${i} / ${totalPages}`;
+                    
+                    // Tarih (sola)
+                    pdf.text(today, margin, pdfHeight - 10);
+                    
+                    // Sayfa Numarası (sağa)
+                    pdf.text(pageStr, pdfWidth - margin, pdfHeight - 10, { align: 'right' });
+                }
+                // --- YENİ BÖLÜM SONU ---
+
+                pdf.save(fileName);
+
+            }).catch(err => {
+                pdfButton.style.display = 'block';
+                console.error("Grafik alanı oluşturulurken hata oluştu:", err);
+                alert("PDF oluşturulurken grafik alanında bir hata oluştu.");
+            });
+        }).catch(err => {
+            pdfButton.style.display = 'block';
+            console.error("Filtre alanı oluşturulurken hata oluştu:", err);
+            alert("PDF oluşturulurken filtre alanında bir hata oluştu.");
+        });
+    });
+    // --- DEĞİŞİKLİK BİTİŞİ ---
+
 });
 </script>
