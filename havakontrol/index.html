@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+
+    
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-Z0RK3WKB0Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-Z0RK3WKB0Q');
+</script>
+
+    <meta charset="utf-8">
+    <title>Akıllı Sıcaklık ve Nem İzleme Sistemi</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Sıcaklık, Nem, hava kontrol iot, IoT, Veri İzleme" name="keywords">
+    <meta content="hava kontrol iot tabanlı akıllı sıcaklık ve nem izleme sistemi" name="description">
+
+    <!-- Favicon -->
+    <link href="img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Ubuntu:wght@500;700&display=swap"
+    rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="lib/animate/animate.min.css" rel="stylesheet">
+    <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="css/style.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Spinner Start -->
+    <div id="spinner"
+    class="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
+    <div class="spinner-grow text-primary" style="width: 3rem; height: 3rem;" role="status">
+        <span class="sr-only">Yükleniyor...</span>
+    </div>
+</div>
+<!-- Spinner End -->
+
+<!-- Navbar Start -->
+<div class="container-fluid sticky-top">
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-dark p-0">
+            <a href="index.html" class="navbar-brand">
+                <h1 class="text-white">havakontrol<span class="text-dark">.</span>com</h1>
+            </a>
+            <button type="button" class="navbar-toggler ms-auto me-0" data-bs-toggle="collapse"
+            data-bs-target="#navbarCollapse">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarCollapse">
+            <div class="navbar-nav ms-auto">
+                <a href="index.html" class="nav-item nav-link active">Ana Sayfa</a>
+                <a href="#about" class="nav-item nav-link">Hakkında</a>
+                <a href="#features" class="nav-item nav-link">Özellikler</a>
+                <a href="#how-it-works" class="nav-item nav-link">Nasıl Çalışır</a>
+                <a href="dash/signup.php" class="nav-item nav-link">Kayıt Ol</a>
+                <a href="dash/index.php" class="nav-item nav-link">Gösterge Paneli</a>
+            </div>
+        </div>
+    </nav>
+</div>
+</div>
+<!-- Navbar End -->
+
+<!-- Hero Start -->
+<div class="container-fluid pt-5 bg-primary hero-header mb-5">
+    <div class="container pt-5">
+        <div class="row g-5 pt-5">
+            <div class="col-lg-6 align-self-center text-center text-lg-start mb-lg-5">
+                <div class="btn btn-sm border rounded-pill text-white px-3 mb-3 animated slideInRight">IoT Çözümü</div>
+                <h1 class="display-4 text-white mb-4 animated slideInRight">Akıllı Sıcaklık ve Nem İzleme Sistemi</h1>
+                <p class="text-white mb-4 animated slideInRight">Hava kontrol IoT tabanlı, gerçek zamanlı sıcaklık ve nem takibi için yenilikçi çözüm! Dakikada bir güncellenen verilerle ortamınızı uzaktan izleyin.</p>
+                <!--
+                <a href="#features" class="btn btn-light py-sm-3 px-sm-5 rounded-pill me-3 animated slideInRight">Özellikler</a>
+            -->
+            <a href="dash/index.php" class="btn btn-outline-light py-sm-3 px-sm-5 rounded-pill animated slideInRight">Gösterge Paneli</a>
+        </div>
+        <div class="col-lg-6 align-self-end text-center text-lg-end">
+            <img class="img-fluid" src="img/hero-img.png" alt="Sıcaklık ve Nem Sensörü">
+        </div>
+    </div>
+</div>
+</div>
+<!-- Hero End -->
+
+<!-- About Start -->
+<div class="container-fluid py-5" id="about">
+    <div class="container">
+        <div class="row g-5 align-items-center">
+            <div class="col-lg-6 wow fadeIn" data-wow-delay="0.1s">
+                <div class="about-img">
+                    <img class="img-fluid" src="img/about-img.jpg" alt="hava kontrol iot Cihazı">
+                </div>
+            </div>
+            <div class="col-lg-6 wow fadeIn" data-wow-delay="0.5s">
+                <div class="btn btn-sm border rounded-pill text-primary px-3 mb-3">Hakkımızda</div>
+                <h1 class="mb-4">Biz Kimiz?</h1>
+                <p class="mb-4">Hava kontrol iot tabanlı sıcaklık ve nem izleme <a href="https://www.rmtproje.com"> RMT Proje</a> tarafından <a href="https://www.bauntek.com.tr/"> Balıkesir Teknokentte</a> tasarlandı. </p>
+                <p class="mb-4">Kullanıcı dostu web arayüz sayesinde, dünyanın herhangi bir yerinden verilerinize erişebilir ve analiz edebilirsiniz. ayrıca arşivde verileriniz sürekli saklanacağından geriye dönük bilgilerinize de erişimizin mümkündür.</p>
+
+                <!--
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Gerçek Zamanlı İzleme</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Kolay Kurulum</h6>
+                    </div>
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Uzaktan Erişim</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Düşük Güç Tüketimi</h6>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center mt-4">
+                    <a class="btn btn-primary rounded-pill px-4 me-3" href="#features">Daha Fazla</a>
+                </div>
+            -->
+        </div>
+    </div>
+</div>
+</div>
+<!-- About End -->
+
+<!-- Features Start -->
+<div class="container-fluid bg-light mt-5 py-5" id="features">
+    <div class="container py-5">
+        <div class="row g-5 align-items-center">
+            <div class="col-lg-5 wow fadeIn" data-wow-delay="0.1s">
+                <div class="btn btn-sm border rounded-pill text-primary px-3 mb-3">Özellikler</div>
+                <h1 class="mb-4">Sistemimizin Öne Çıkan Özellikleri</h1>
+                <p class="mb-4">Akıllı sıcaklık ve nem izleme sistemimiz, çeşitli avantajlar sunar:</p>
+                <a class="btn btn-primary rounded-pill px-4" href="dash/index.php">Gösterge Paneline Git</a>
+            </div>
+            <div class="col-lg-7">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="row g-4">
+                            <div class="col-12 wow fadeIn" data-wow-delay="0.1s">
+                                <div class="feature-box border rounded p-4">
+                                    <i class="fa fa-check fa-3x text-primary mb-3"></i>
+                                    <h4 class="mb-3">Gerçek Zamanlı Veri</h4>
+                                    <p class="mb-3">Dakikada bir güncellenen sıcaklık ve nem verileri</p>
+                                </div>
+                            </div>
+                            <div class="col-12 wow fadeIn" data-wow-delay="0.3s">
+                                <div class="feature-box border rounded p-4">
+                                    <i class="fa fa-users-cog fa-3x text-primary mb-3"></i>
+                                    <h4 class="mb-3">Kolay Yönetim</h4>
+                                    <p class="mb-3">Kullanıcı dostu web arayüzü ile kolay veri yönetimi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row g-4">
+                            <div class="col-12 wow fadeIn" data-wow-delay="0.5s">
+                                <div class="feature-box border rounded p-4">
+                                    <i class="fa fa-globe fa-3x text-primary mb-3"></i>
+                                    <h4 class="mb-3">Uzaktan Erişim</h4>
+                                    <p class="mb-3">İnternet üzerinden her yerden erişim imkanı</p>
+                                </div>
+                            </div>
+                            <div class="col-12 wow fadeIn" data-wow-delay="0.7s">
+                                <div class="feature-box border rounded p-4">
+                                    <i class="fa fa-battery-full fa-3x text-primary mb-3"></i>
+                                    <h4 class="mb-3">Enerji Verimli</h4>
+                                    <p class="mb-3">Düşük güç tüketimi ile uzun süreli çalışma</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Features End -->
+
+<!-- How It Works Start -->
+<div class="container-fluid py-5" id="how-it-works">
+    <div class="container">
+        <div class="row g-5 align-items-center">
+            <div class="col-lg-6 wow fadeIn" data-wow-delay="0.1s">
+                <div class="btn btn-sm border rounded-pill text-primary px-3 mb-3">Nasıl Çalışır</div>
+                <h1 class="mb-4">Sistemimiz Nasıl Çalışır?</h1>
+                <p class="mb-4">Akıllı sıcaklık ve nem izleme sistemimiz, basit ama etkili bir şekilde çalışır:</p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Veri Toplama</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Veri İletimi</h6>
+                    </div>
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Veri Depolama</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Veri Görüntüleme</h6>
+                    </div>
+                </div>
+                <a class="btn btn-primary rounded-pill px-4 mt-3" href="dash/index.php">Gösterge Paneline Git</a>
+            </div>
+            <div class="col-lg-6">
+                <div class="row g-4">
+                    <div class="col-12 wow fadeIn" data-wow-delay="0.3s">
+                        <div class="feature-box border rounded p-4">
+                            <i class="fa fa-microchip fa-3x text-primary mb-3"></i>
+                            <h4 class="mb-3">hava kontrol iot Sensör Okuma</h4>
+                            <p class="mb-3">hava kontrol iot cihazı, bağlı sensörlerden sıcaklık ve nem verilerini okur.</p>
+                        </div>
+                    </div>
+                    <div class="col-12 wow fadeIn" data-wow-delay="0.5s">
+                        <div class="feature-box border rounded p-4">
+                            <i class="fa fa-wifi fa-3x text-primary mb-3"></i>
+                            <h4 class="mb-3">Veri Gönderimi</h4>
+                            <p class="mb-3">Okunan veriler, dakikada bir internet üzerinden veritabanına gönderilir.</p>
+                        </div>
+                    </div>
+                    <div class="col-12 wow fadeIn" data-wow-delay="0.7s">
+                        <div class="feature-box border rounded p-4">
+                            <i class="fa fa-database fa-3x text-primary mb-3"></i>
+                            <h4 class="mb-3">Veri Depolama ve Görüntüleme</h4>
+                            <p class="mb-3">Veriler veritabanında saklanır ve web arayüzünde görüntülenir.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- How It Works End -->
+
+<!-- Footer Start -->
+<div class="container-fluid bg-dark text-white-50 footer pt-5">
+    <div class="container py-5">
+        <div class="row g-5">
+            <div class="col-md-6 col-lg-3 wow fadeIn" data-wow-delay="0.1s">
+                <a href="index.html" class="d-inline-block mb-3">
+                    <h1 class="text-white">Havakontrol<span class="text-primary">.</span>com</h1>
+                </a>
+                <p class="mb-0">hava kontrol iot tabanlı akıllı sıcaklık ve nem izleme sistemi ile ortamınızı kontrol altında tutun. Gerçek zamanlı veriler, uzaktan erişim ve kullanıcı dostu arayüz. En ekonomik ürün garantisi</p>
+            </div>
+            <div class="col-md-6 col-lg-3 wow fadeIn" data-wow-delay="0.3s">
+                <h5 class="text-white mb-4">İletişim</h5>
+                <p><i class="fa fa-map-marker-alt me-3"></i>Balıkesir Teknokent Ofis No:2-09 Balıkesir , Türkiye</p>
+                <p><i class="fa fa-phone-alt me-3"></i>+90 266 606 01 32</p>
+                <p><i class="fa fa-envelope me-3"></i>rmt@havakontrol.com</p>
+                <div class="d-flex pt-2">
+                    <a class="btn btn-outline-light btn-social" href=""><i class="fab fa-twitter"></i></a>
+                    <a class="btn btn-outline-light btn-social" href=""><i class="fab fa-facebook-f"></i></a>
+                    <a class="btn btn-outline-light btn-social" href=""><i class="fab fa-instagram"></i></a>
+                    <a class="btn btn-outline-light btn-social" href=""><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3 wow fadeIn" data-wow-delay="0.5s">
+                <h5 class="text-white mb-4">Hızlı Bağlantılar</h5>
+                <a class="btn btn-link" href="#about">Hakkımızda</a>
+                <a class="btn btn-link" href="#features">Özellikler</a>
+                <a class="btn btn-link" href="#how-it-works">Nasıl Çalışır</a>
+                <a class="btn btn-link" href="dash/index.php">Gösterge Paneli</a>
+                <a class="btn btn-link" href="https://www.rmtproje.com">Şirketimiz</a>
+<!--                <a class="btn btn-link" href="">Kullanım Şartları</a>   -->
+            </div>
+            <div class="col-md-6 col-lg-3 wow fadeIn" data-wow-delay="0.7s">
+                <h5 class="text-white mb-4">Proje Güncellemeleri</h5>
+                <p>Yeni özellikler ve güncellemeler hakkında bilgi almak için abone olun.</p>
+                <div class="position-relative w-100 mt-3">
+                    <input class="form-control border-0 rounded-pill w-100 ps-4 pe-5" type="text"
+                    placeholder="E-posta adresiniz" style="height: 48px;">
+                    <button type="button" class="btn shadow-none position-absolute top-0 end-0 mt-1 me-2"><i
+                        class="fa fa-paper-plane text-primary fs-4"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container wow fadeIn" data-wow-delay="0.1s">
+            <div class="copyright">
+                <div class="row">
+                    <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
+                        &copy; <a class="border-bottom" href="#">havakontrol.com</a>, Tüm Hakları Saklıdır.
+                    </div>
+                    <div class="col-md-6 text-center text-md-end">
+                        <div class="footer-menu">
+                            <a href="">Ana Sayfa</a>
+                            <a href="">Çerezler</a>
+                            <a href="">Yardım</a>
+                            <a href="">SSS</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Footer End -->
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top pt-2"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="lib/wow/wow.min.js"></script>
+    <script src="lib/easing/easing.min.js"></script>
+    <script src="lib/waypoints/waypoints.min.js"></script>
+    <script src="lib/counterup/counterup.min.js"></script>
+    <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="js/main.js"></script>
+</body>
+
+</html>

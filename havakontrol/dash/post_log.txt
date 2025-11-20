@@ -1,0 +1,8 @@
+{"tarih":"2024-12-15 22:03:59","veriler":{"serino":"f4ef1ae","temp":"21.90","hum":"74.10","wifi":"94","versiyon":"14.02","oturum":"10","kod1dk":"5"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:04:01","veriler":{"serino":"dbd8b8e","temp":"22.10","hum":"76.60","wifi":"98","versiyon":"14.02","oturum":"10","kod1dk":"5"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:04:04","veriler":{"serino":"2148fbe","temp":"22.80","hum":"71.60","wifi":"100","versiyon":"14.02","oturum":"10","kod1dk":"3"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:04:11","veriler":{"serino":"3c47fb6","temp":"23.80","hum":"72.00","wifi":"76","versiyon":"14.02","oturum":"9","kod1dk":"3"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:04:59","veriler":{"serino":"f4ef1ae","temp":"21.90","hum":"74.10","wifi":"94","versiyon":"14.02","oturum":"11","kod1dk":"5"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:05:02","veriler":{"serino":"dbd8b8e","temp":"22.08","hum":"76.60","wifi":"98","versiyon":"14.02","oturum":"11","kod1dk":"2"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:05:04","veriler":{"serino":"2148fbe","temp":"22.80","hum":"71.70","wifi":"100","versiyon":"14.02","oturum":"11","kod1dk":"2"},"ip":"178.233.33.241"}
+{"tarih":"2024-12-15 22:05:09","veriler":{"serino":"3c47fb6","temp":"23.80","hum":"72.00","wifi":"72","versiyon":"14.02","oturum":"10","kod1dk":"7"},"ip":"178.233.33.241"}

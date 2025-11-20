@@ -400,10 +400,10 @@ echo '</script>';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="assets/app.css">
   <!-- Grafikler için gerekli scriptler -->
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <script src="assets/js/luxon.min.js"></script>
+  <script src="assets/js/chart.umd.min.js" defer></script>
+  <script src="assets/js/chartjs-adapter-luxon.umd.min.js" defer></script>
+  <script src="assets/js/echarts.min.js" defer></script>
   <style>
     .canvas-wrap{position:relative;height:350px} /* ESKİ: 330px */
     @media (max-width:800px){.canvas-wrap{height:280px}} /* ESKİ: 260px */
@@ -672,6 +672,18 @@ echo '</script>';
       background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer;
     }
     .btn-close:hover{ background:#f8fafc; }
+    .panel.checklist{
+      border-left:4px solid #0ea5e9;
+      background:#0f172a;
+      color:#e2e8f0;
+    }
+    .panel.checklist h3{ margin:0; font-size:14px; color:#fff; }
+    .panel.checklist ul{ margin:6px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+    .panel.checklist ul li{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .panel.checklist .status{ font-weight:600; }
+    .panel.checklist .status-ok{ color:#22c55e; }
+    .panel.checklist .status-error{ color:#fb7185; }
+    .panel.checklist .status-pending{ color:#facc15; }
   </style>
   <!-- parseTs helper script kaldırıldı; tek kopyası altta "Yardımcılar" bölümünde -->
 </head>
@@ -848,6 +860,34 @@ echo '</script>';
             </details>
         <?php endif; ?>
     </div>
+              <div class="panel checklist" id="debugChecklist">
+                <h3>Çalışır Durum Kontrolü</h3>
+                <ul id="debugChecklistList">
+                  <li data-check="internet">
+                    Tarayıcı internet erişimi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="assets">
+                    Chart.js / ECharts / Luxon yüklendi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="data">
+                    Cihaz verisi aktarıldı:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="ops">
+                    Operasyon verisi yüklendi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="fetch">
+                    Yerel script erişimi (assets/js/echarts.min.js):
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                </ul>
+                <p class="muted" style="font-size:11px; margin-top:10px;">
+                  Bu blok geçici bir kontrol amaçlıdır. Sorun çözüldüğünde <code>#debugChecklist</code> bölümünü ve aşağıdaki scripti kaldırabilirsiniz.
+                </p>
+              </div>
   </div> <!-- .container kapanışı -->
 
   <script>
@@ -1751,6 +1791,58 @@ echo '</script>';
       initDeviceFilter();
       buildCharts();
     });
+</script>
+<script>
+  (function(){
+    const list = document.getElementById('debugChecklistList');
+    if(!list) return;
+    function setStatus(key, state, detail){
+      const el = list.querySelector(`[data-check="${key}"]`);
+      if(!el) return;
+      const badge = el.querySelector('.status');
+      if(!badge) return;
+      badge.textContent = detail;
+      badge.classList.remove('status-ok','status-error','status-pending');
+      badge.classList.add(state === 'ok' ? 'status-ok' : state === 'error' ? 'status-error' : 'status-pending');
+    }
+
+    const getDevices = ()=> (typeof DEVICES !== 'undefined' ? DEVICES : (Array.isArray(window.DEVICES) ? window.DEVICES : []));
+    const getOpsCache = ()=> (typeof OPS_CACHE !== 'undefined' ? OPS_CACHE : (Array.isArray(window.OPS_CACHE) ? window.OPS_CACHE : []));
+
+    const checks = {
+      internet: () => ({ state: navigator.onLine ? 'ok' : 'error', detail: navigator.onLine ? 'Tarayıcı çevrimiçi' : 'Tarayıcı çevrimdışı' }),
+      assets: () => {
+        const ready = typeof window.Chart === 'function' && typeof window.echarts === 'object' && typeof window.luxon !== 'undefined';
+        return { state: ready ? 'ok' : 'error', detail: ready ? 'Chart.js + ECharts + Luxon yüklü' : 'Bazı kütüphaneler eksik' };
+      },
+      data: () => {
+        const devices = getDevices();
+        const has = Array.isArray(devices) && devices.length > 0;
+        return { state: has ? 'ok' : 'error', detail: has ? `Cihaz: ${devices.length} adet` : 'Cihaz verisi boş' };
+      },
+      ops: () => {
+        const ops = getOpsCache();
+        const has = Array.isArray(ops) && ops.length > 0;
+        return { state: has ? 'ok' : 'error', detail: has ? `Operasyon: ${ops.length} adet` : 'Operasyon verisi boş' };
+      },
+      fetch: () => fetch('assets/js/echarts.min.js', { cache: 'no-store' }).then(()=>({ state: 'ok', detail: 'assets/js/echarts.min.js erişilebilir' })).catch(()=>({ state: 'error', detail: 'assets/js/echarts.min.js yüklenemedi' }))
+    };
+
+    function evaluate(){
+      Object.entries(checks).forEach(([key, fn])=>{
+        const result = fn();
+        if(result instanceof Promise){
+          setStatus(key,'pending','Kontrol ediliyor…');
+          result.then(res=> setStatus(key, res.state, res.detail)).catch(()=> setStatus(key,'error','Kontrol sırasında hata'));
+        } else {
+          setStatus(key, result.state, result.detail);
+        }
+      });
+    }
+
+    evaluate();
+    window.addEventListener('load', evaluate);
+  })();
 </script>
 </body>
 </html>

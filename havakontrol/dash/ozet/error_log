@@ -1,0 +1,5 @@
+[10-Jan-2025 22:49:36 Europe/Istanbul] PHP Fatal error:  Uncaught Error: Call to a member function fetch_assoc() on bool in /home/havakont/public_html/dash/ozet/veri_kontrol.php:31
+Stack trace:
+#0 {main}
+  thrown in /home/havakont/public_html/dash/ozet/veri_kontrol.php on line 31
+[12-Jan-2025 17:25:36 Europe/Istanbul] PHP Parse error:  syntax error, unexpected '}', expecting ';' or ',' in /home/havakont/public_html/dash/ozet/detay_getir.php on line 20
