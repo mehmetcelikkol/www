@@ -1,5 +1,6 @@
+
 <?php
-declare(strict_types=1);
+
 require __DIR__.'/auth.php';
 auth_require_login();
 /*
@@ -12,6 +13,9 @@ auth_require_login();
 */
 error_reporting(E_ALL); ini_set('display_errors','1');
 set_time_limit(60); // ) eklendi
+// Cache kontrol (quirks ve eski JS kalmasın)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 // EKLENDİ: Saat dilimi
 date_default_timezone_set('Europe/Istanbul');
 
@@ -52,9 +56,10 @@ function load_config(string $path): ?array {
 }
 
 $CONFIG_PATH_CANDIDATES = [
-    // Mevcut bilinen yol (gerekirse düzenleyin)
-    'D:/rmt-drive/Has/un enerji analizi/1/Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
-    // Aynı klasörden göreli bir örnek; gerekiyorsa ekleyin
+  // Öncelikli yol (ilk olarak burayı dene)
+  'D:/rmt-drive/Has/un enerji analizi/1/Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
+  // Yerel klasörden erişilebilecek alternatif yol
+  'Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
 ];
 $config = null; $configPathUsed = null;
 foreach($CONFIG_PATH_CANDIDATES as $p){
@@ -387,10 +392,7 @@ if ($overrideEnd && $dtOk($overrideEnd)) {
     $RANGE_END_ISO = $overrideEnd;
 }
 
-// JS’ye aktarım için
-echo '<script>';
-echo 'window.OP_FILTER_ID = '.($overrideOpId ?: 0).';';
-echo '</script>';
+// JS’ye aktarım için (çıktıyı geciktiriyoruz; quirks mode için DOCTYPE ilk olmalı)
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -404,6 +406,46 @@ echo '</script>';
   <script src="assets/js/chart.umd.min.js" defer></script>
   <script src="assets/js/chartjs-adapter-luxon.umd.min.js" defer></script>
   <script src="assets/js/echarts.min.js" defer></script>
+  <script>
+    // Dinamik bundle yedek yükleme (statik tag eklenmediyse veya striplendiyse)
+    (function(){
+      try {
+        stageLog && stageLog('DYNAMIC_LOADER_START');
+        if(document.querySelector('script[src*="grafikler.bundle.js"]')){
+          stageLog && stageLog('STATIC_BUNDLE_TAG_PRESENT');
+          return;
+        }
+        var s=document.createElement('script');
+        s.src='assets/js/grafikler.bundle.js?v=' + Date.now();
+        s.defer=true;
+        s.onload=function(){ stageLog && stageLog('BUNDLE_LOADED_DYNAMIC'); };
+        s.onerror=function(){ stageLog && stageLog('BUNDLE_LOAD_ERROR'); console.error('grafikler.bundle.js yüklenemedi'); };
+        document.head.appendChild(s);
+      } catch(e){ console.error('Dynamic loader hata', e); stageLog && stageLog('DYNAMIC_LOADER_ERROR'); }
+    })();
+  </script>
+  <script>
+    // Erken enstrümantasyon (remote makinede ne çalışıyor?)
+    (function(){
+      window.__stageLogs = [];
+      window.stageLog = function(msg){ try{ console.log('[STAGE]', msg); window.__stageLogs.push(msg); }catch(e){} };
+      window.onerror = function(m,s,l,c,err){
+        console.error('GLOBAL JS ERROR:', m, 'kaynak:', s+':'+l, 'detay:', err);
+        stageLog('GLOBAL_ERROR');
+        const pane = document.getElementById('debugLivePane');
+        if(pane){
+          const div=document.createElement('div');
+          div.style.color='#dc2626';
+          div.textContent='JS Hatası: '+m+' @'+l;
+          pane.appendChild(div);
+        }
+      };
+      stageLog('HEAD_INLINE_STARTED');
+      stageLog('UserAgent='+navigator.userAgent);
+      stageLog('LocationHref='+location.href);
+    })();
+  </script>
+  <script>window.OP_FILTER_ID = <?= (int)($overrideOpId ?: 0) ?>;</script>
   <style>
     .canvas-wrap{position:relative;height:350px} /* ESKİ: 330px */
     @media (max-width:800px){.canvas-wrap{height:280px}} /* ESKİ: 260px */
@@ -890,96 +932,18 @@ echo '</script>';
               </div>
   </div> <!-- .container kapanışı -->
 
+  <!-- MARKER: BODY_REACHED_BEFORE_MAIN_SCRIPT -->
+  <script>stageLog && stageLog('BEFORE_MAIN_SCRIPT');</script>
   <script>
-    // Veri köprüleri (PHP -> JS)
-    const DEVICES = <?= json_encode($devicesOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-    const USE_DATE_FILTER = <?= $useDateFilter ? 'true' : 'false' ?>;
-    const RANGE_START_ISO = '<?= h($startDT->format('Y-m-d H:i:s')) ?>';
-    const RANGE_END_ISO   = '<?= h($endDT->format('Y-m-d H:i:s')) ?>';
-    const OPS_FROM_SERVER = <?= json_encode($opsOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-    let chartInstances = {};
-    let OPS_CACHE = [];
-    let OPS_ENABLED = true;
-    let DEV_FILTER_COLLAPSED = false; // kullanılmıyor ama kalsın
-
-    // EKLENDİ: dataZoom ile görünür zaman aralığı (global)
-    window.ZOOM_RANGE = null; // { startTs, endTs, startIso, endIso, startPct, endPct, deviceId }
-
-    // EKLENDİ: OPS_FROM_SERVER -> OPS_CACHE (ISO T ile)
-    OPS_CACHE = (OPS_FROM_SERVER || []).map(o => ({
-      id: o.id,
-      name: o.ad,
-      start: (o.baslangic || '').replace(' ','T'),
-      end: (o.bitis ? o.bitis.replace(' ','T') : RANGE_END_ISO.replace(' ','T')),
-      qty: o.miktar,
-      unit: o.birim
-    }));
-
-    // window.OP_FILTER_ID ile filtreleme (varsa, tekil hale getir)
-    if (window.OP_FILTER_ID && Array.isArray(OPS_CACHE)) {
-      OPS_CACHE = OPS_CACHE.filter(o => Number(o.id) === Number(window.OP_FILTER_ID));
-    }
-
-    // Yardımcılar
-    function parseTs(str){
-      if(!str) return NaN;
-      return Date.parse(String(str).replace(' ','T'));
-    }
-    function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
-    function fmtDisp(ts){ const d=new Date(ts); if(!Number.isFinite(+d)) return '-'; return fmt(d).replace('T',' '); } // Ekran tarihi
-    function selectedDeviceIds(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) {
-        const all = [...sel.options].map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        const chosen = [...sel.options].filter(o=>o.selected).map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        return chosen.length ? chosen : all;
-      }
-      // Geriye dönük: checkbox varsa
-      const box=document.getElementById('deviceFilter'); 
-      if(!box) return (DEVICES||[]).map(d=>d.cihaz_id);
-      const ids=[...box.querySelectorAll('input[type=checkbox]')].filter(i=>i.checked).map(i=>parseInt(i.value,10));
-      return ids.length? ids : (DEVICES||[]).map(d=>d.cihaz_id);
-    }
-
-    // EKLENDİ: Cihaz seçimi yardımcıları
-    function refreshSelectedCount(){
-      const total = (DEVICES||[]).length;
-      const selCount = selectedDeviceIds().length;
-      const el = document.getElementById('devSelCount');
-      if (el) el.textContent = `Seçili: ${selCount}/${total}`;
-    }
-    function initDeviceFilter(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) sel.addEventListener('change', refreshSelectedCount);
-      refreshSelectedCount();
-    }
-    function selectAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=true);
-      refreshSelectedCount();
-    }
-    function clearAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=false);
-      refreshSelectedCount();
-    }
-    function refreshDeviceChips(){ /* listbox kullanılıyor; no-op */ }
-
-    function buildUrl(start, end){
-      const params = new URLSearchParams();
-      if(start) params.set('start', start);
-      if(end)   params.set('end',   end);
-      const ids = selectedDeviceIds();
-      ids.forEach(id=>params.append('dev[]', String(id)));
-      // Mevcut sayfanın yolu (grafikler.php ya da grafiker1.php fark etmez)
-      const basePath = window.location.pathname;
-      const qs = params.toString();
-      return basePath + (qs ? ('?'+qs) : '');
-    }
-    function goRangeStartEnd(startDate, endDate){
-      const s = fmt(startDate), e = fmt(endDate);
-      window.location = buildUrl(s,e);
-    }
+    // Veri köprüleri (kısa inline; güvenlik eklentileri genelde küçük bloklara izin verir)
+    window.DEVICES = <?= json_encode($devicesOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    window.USE_DATE_FILTER = <?= $useDateFilter ? 'true' : 'false' ?>;
+    window.RANGE_START_ISO = '<?= h($startDT->format('Y-m-d H:i:s')) ?>';
+    window.RANGE_END_ISO   = '<?= h($endDT->format('Y-m-d H:i:s')) ?>';
+    window.OPS_FROM_SERVER = <?= json_encode($opsOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    window.OP_FILTER_ID = <?= (int)($overrideOpId ?: 0) ?>;
+  </script>
+  <script src="assets/js/grafikler.bundle.js" defer></script>
     function allData(){
       // Start/end olmadan, dev[] korunarak
       window.location = buildUrl(null,null);
@@ -1150,16 +1114,21 @@ echo '</script>';
     // ECharts ile grafik kur
     function buildCharts(){
       const container=document.getElementById('charts'); if(!container) return;
+      stageLog('buildCharts_start');
 
       // Temizle (yeniden kurulum)
       container.innerHTML = '';
       chartInstances = {};
+      stageLog('container_cleared');
 
       // Seçili cihazlar
       const ids = selectedDeviceIds();
       const devicesToShow = (DEVICES||[]).filter(d=> ids.includes(d.cihaz_id));
+      stageLog('selected_ids='+JSON.stringify(ids));
+      stageLog('devicesToShow_count='+(devicesToShow.length));
       if(!devicesToShow.length){
         console.warn('Seçili cihaz bulunamadı.');
+        stageLog('NO_DEVICES');
         return;
       }
 
@@ -1586,6 +1555,7 @@ echo '</script>';
       }catch(e){ console.warn('Connect hatası', e); }
 
       console.log('ECharts kurulum tamam. Grafik sayısı:', Object.keys(chartInstances).length);
+      stageLog('charts_done='+Object.keys(chartInstances).length);
     } // buildCharts sonu
 
     // ---------- Raporlama yardımcıları ----------
@@ -1638,6 +1608,24 @@ echo '</script>';
 
       return { n, min, max, mean, median, p10, p90, std, sum, first, last, delta, absDelta, minAt, maxAt, medDt, gapCnt, gapTotal };
     }
+    function integrateEnergy(points){
+      const normalized = (points||[]).map(p=>{
+        const t = Date.parse((p[0] ?? p.x ?? '').toString());
+        const y = Number(p[1] ?? p.y);
+        return Number.isFinite(t) && Number.isFinite(y) ? { t, y } : null;
+      }).filter(Boolean).sort((a,b)=>a.t-b.t);
+      if(normalized.length < 2) return NaN;
+      let energy = 0;
+      for(let i=1;i<normalized.length;i++){
+        const prev = normalized[i-1];
+        const curr = normalized[i];
+        const dtMs = curr.t - prev.t;
+        if(dtMs <= 0) continue;
+        const avgP = (prev.y + curr.y) / 2;
+        energy += avgP * (dtMs / 3600000); // assuming kW readings, result in kWh
+      }
+      return energy;
+    }
     function within(ts, s, e){ return ts>=s && ts<=e; }
 
     // EKLENDİ: Hangi seri adlarının kalın gösterileceği
@@ -1686,7 +1674,8 @@ echo '</script>';
           return Number.isFinite(t) && within(t, startTs, endTs);
         });
         const st = computeSeriesStats(pts);
-        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+        const energy = integrateEnergy(pts);
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st, energy });
       });
       const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)}</div>`;
       function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
@@ -1694,18 +1683,20 @@ echo '</script>';
       let html = `
         ${head}
         <table style="margin-top:8px">
-          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th></tr></thead>
+          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th><th>Enerji (kWh)</th></tr></thead>
           <tbody>
       `;
       rows.forEach(r=>{
         const s=r.stats, u=r.unit, nm=r.name || 'Seri';
         const emph = isEmphSeries(nm);
+        const energyText = Number.isFinite(r.energy) ? `${fmtNum(r.energy)} kWh` : '-';
         html += `<tr${emph?' class="emph-row"':''}>
           <td>${escapeHtml(nm)}</td>
           <td>${withUnit(s.min,u)}</td>
           <td>${withUnit(s.max,u)}</td>
           <td>${withUnit(s.mean,u)}</td>
           <td>${withUnit(s.delta,u)}</td>
+          <td>${energyText}</td>
         </tr>`;
       });
       html += `</tbody></table>`;
