@@ -1,5 +1,6 @@
+
 <?php
-declare(strict_types=1);
+
 require __DIR__.'/auth.php';
 auth_require_login();
 /*
@@ -12,8 +13,9 @@ auth_require_login();
 */
 error_reporting(E_ALL); ini_set('display_errors','1');
 set_time_limit(60); // ) eklendi
-// Bellek limiti artırıldı (büyük veri sorguları için)
-ini_set('memory_limit','512M');
+// Cache kontrol (quirks ve eski JS kalmasın)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 // EKLENDİ: Saat dilimi
 date_default_timezone_set('Europe/Istanbul');
 
@@ -54,9 +56,10 @@ function load_config(string $path): ?array {
 }
 
 $CONFIG_PATH_CANDIDATES = [
-    // Mevcut bilinen yol (gerekirse düzenleyin)
-    'D:/rmt-drive/Has/un enerji analizi/1/Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
-    // Aynı klasörden göreli bir örnek; gerekiyorsa ekleyin
+  // Öncelikli yol (ilk olarak burayı dene)
+  'D:/rmt-drive/Has/un enerji analizi/1/Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
+  // Yerel klasörden erişilebilecek alternatif yol
+  'Enerji izleme v1/bin/Debug/Enerji izleme v1.exe.config',
 ];
 $config = null; $configPathUsed = null;
 foreach($CONFIG_PATH_CANDIDATES as $p){
@@ -157,11 +160,7 @@ if($config){
                     } else {
                         $rowCounter=0; $devicesTmp=[];
                         $minFetched=null; $maxFetched=null; $firstRows=[]; $lastRows=[]; // debug amaçlı
-                        $MAX_ROWS = 500000; // üst sınır (memory koruması)
-                        $ROW_LIMIT_HIT = false;
                         while($st->fetch()){
-                          if($rowCounter >= $MAX_ROWS){
-                            $ROW_LIMIT_HIT = true; break; }
                             $rowCounter++;
                             $cid=(int)$cihaz_id; $addrId=(int)$cihaz_adres_id;
                             if($minFetched===null || $kayit_zamani < $minFetched) $minFetched=$kayit_zamani;
@@ -182,7 +181,6 @@ if($config){
                             $isoTime = str_replace(' ','T',$kayit_zamani);
                             $devicesTmp[$cid]['series'][$key]['data'][]=['x'=>$isoTime,'y'=>(float)$deger];
                         }
-                        if($ROW_LIMIT_HIT){ $notes[]='Satır limiti (' . $MAX_ROWS . ') aşıldığı için veri kesildi.'; }
                         if($rowCounter===0) $notes[]= $useDateFilter ? 'Bu aralıkta ölçüm yok.' : 'Kayıt bulunamadı.';
                         else {
                             $notes[]='Sorguda toplam satır: '.$rowCounter;
@@ -376,6 +374,25 @@ if(empty($errors)){
 
 // ---- TEMPLATE ----
 $genMs = round((microtime(true)-$started)*1000,2);
+
+// ---- RENDERING LOGİK (EKLENDİ) ----
+// Kullanıcıdan gelen aralık parametreleri (override)
+$overrideStart = isset($_GET['range_start']) ? trim($_GET['range_start']) : null;
+$overrideEnd   = isset($_GET['range_end'])   ? trim($_GET['range_end'])   : null;
+$overrideOpId  = isset($_GET['op_id']) ? (int)$_GET['op_id'] : 0;
+
+$dtOk = function($s){
+    return preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $s);
+};
+
+if ($overrideStart && $dtOk($overrideStart)) {
+    $RANGE_START_ISO = $overrideStart;
+}
+if ($overrideEnd && $dtOk($overrideEnd)) {
+    $RANGE_END_ISO = $overrideEnd;
+}
+
+// JS’ye aktarım için (çıktıyı geciktiriyoruz; quirks mode için DOCTYPE ilk olmalı)
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -385,13 +402,53 @@ $genMs = round((microtime(true)-$started)*1000,2);
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="assets/app.css">
   <!-- Grafikler için gerekli scriptler -->
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+  <script src="assets/js/luxon.min.js"></script>
+  <script src="assets/js/chart.umd.min.js" defer></script>
+  <script src="assets/js/chartjs-adapter-luxon.umd.min.js" defer></script>
+  <script src="assets/js/echarts.min.js" defer></script>
+  <script>
+    // Dinamik bundle yedek yükleme (statik tag eklenmediyse veya striplendiyse)
+    (function(){
+      try {
+        stageLog && stageLog('DYNAMIC_LOADER_START');
+        if(document.querySelector('script[src*="grafikler.bundle.js"]')){
+          stageLog && stageLog('STATIC_BUNDLE_TAG_PRESENT');
+          return;
+        }
+        var s=document.createElement('script');
+        s.src='assets/js/grafikler.bundle.js?v=' + Date.now();
+        s.defer=true;
+        s.onload=function(){ stageLog && stageLog('BUNDLE_LOADED_DYNAMIC'); };
+        s.onerror=function(){ stageLog && stageLog('BUNDLE_LOAD_ERROR'); console.error('grafikler.bundle.js yüklenemedi'); };
+        document.head.appendChild(s);
+      } catch(e){ console.error('Dynamic loader hata', e); stageLog && stageLog('DYNAMIC_LOADER_ERROR'); }
+    })();
+  </script>
+  <script>
+    // Erken enstrümantasyon (remote makinede ne çalışıyor?)
+    (function(){
+      window.__stageLogs = [];
+      window.stageLog = function(msg){ try{ console.log('[STAGE]', msg); window.__stageLogs.push(msg); }catch(e){} };
+      window.onerror = function(m,s,l,c,err){
+        console.error('GLOBAL JS ERROR:', m, 'kaynak:', s+':'+l, 'detay:', err);
+        stageLog('GLOBAL_ERROR');
+        const pane = document.getElementById('debugLivePane');
+        if(pane){
+          const div=document.createElement('div');
+          div.style.color='#dc2626';
+          div.textContent='JS Hatası: '+m+' @'+l;
+          pane.appendChild(div);
+        }
+      };
+      stageLog('HEAD_INLINE_STARTED');
+      stageLog('UserAgent='+navigator.userAgent);
+      stageLog('LocationHref='+location.href);
+    })();
+  </script>
+  <script>window.OP_FILTER_ID = <?= (int)($overrideOpId ?: 0) ?>;</script>
   <style>
-    .canvas-wrap{position:relative;height:330px}
-    @media (max-width:800px){.canvas-wrap{height:260px}}
+    .canvas-wrap{position:relative;height:350px} /* ESKİ: 330px */
+    @media (max-width:800px){.canvas-wrap{height:280px}} /* ESKİ: 260px */
 
     /* Daha şık ve küçük cihaz filtreleri */
     .dev-filter{
@@ -646,17 +703,29 @@ $genMs = round((microtime(true)-$started)*1000,2);
       padding:10px 14px; border-bottom:1px solid #f1f5f9;
     }
     .modal header h3{ font-size:14px; margin:0; color:#0f172a; }
-    .modal .content{ padding:12px 14px; font-size:12px; color:#334155; }
+    .modal .content{ padding:12px 14px; font-size:12px; color:#0f172a; } /* KOYULAŞTIRILDI */
     .modal .content table{ width:100%; border-collapse:collapse; font-size:12px; background:#fff }
-    .modal .content th, .modal .content td{ border:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
-    .modal .content th{ background:#f8fafc; font-weight:600; }
-    .modal .muted{ color:#64748b; font-size:11px; }
+    .modal .content th, .modal .content td{ border:1px solid #e5e7eb; padding:6px 8px; text-align:left; color:#0f172a; } /* KOYULAŞTIRILDI */
+    .modal .content th{ background:#f8fafc; font-weight:600; color:#0b1220; } /* KOYULAŞTIRILDI */
+    .modal .muted{ color:#1f2937; font-size:11px; } /* KOYULAŞTIRILDI */
     /* EKLENDİ: Vurgulu satırlar (seri adı eşleşenler) kalın fonts */
     .modal .content tr.emph-row { font-weight:700; }
     .btn-close{
       background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer;
     }
     .btn-close:hover{ background:#f8fafc; }
+    .panel.checklist{
+      border-left:4px solid #0ea5e9;
+      background:#0f172a;
+      color:#e2e8f0;
+    }
+    .panel.checklist h3{ margin:0; font-size:14px; color:#fff; }
+    .panel.checklist ul{ margin:6px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+    .panel.checklist ul li{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .panel.checklist .status{ font-weight:600; }
+    .panel.checklist .status-ok{ color:#22c55e; }
+    .panel.checklist .status-error{ color:#fb7185; }
+    .panel.checklist .status-pending{ color:#facc15; }
   </style>
   <!-- parseTs helper script kaldırıldı; tek kopyası altta "Yardımcılar" bölümünde -->
 </head>
@@ -833,93 +902,48 @@ $genMs = round((microtime(true)-$started)*1000,2);
             </details>
         <?php endif; ?>
     </div>
+              <div class="panel checklist" id="debugChecklist">
+                <h3>Çalışır Durum Kontrolü</h3>
+                <ul id="debugChecklistList">
+                  <li data-check="internet">
+                    Tarayıcı internet erişimi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="assets">
+                    Chart.js / ECharts / Luxon yüklendi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="data">
+                    Cihaz verisi aktarıldı:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="ops">
+                    Operasyon verisi yüklendi:
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                  <li data-check="fetch">
+                    Yerel script erişimi (assets/js/echarts.min.js):
+                    <span class="status status-pending">Kontrol ediliyor…</span>
+                  </li>
+                </ul>
+                <p class="muted" style="font-size:11px; margin-top:10px;">
+                  Bu blok geçici bir kontrol amaçlıdır. Sorun çözüldüğünde <code>#debugChecklist</code> bölümünü ve aşağıdaki scripti kaldırabilirsiniz.
+                </p>
+              </div>
   </div> <!-- .container kapanışı -->
 
+  <!-- MARKER: BODY_REACHED_BEFORE_MAIN_SCRIPT -->
+  <script>stageLog && stageLog('BEFORE_MAIN_SCRIPT');</script>
   <script>
-    // Veri köprüleri (PHP -> JS)
-    const DEVICES = <?= json_encode($devicesOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-    const USE_DATE_FILTER = <?= $useDateFilter ? 'true' : 'false' ?>;
-    const RANGE_START_ISO = '<?= h($startDT->format('Y-m-d H:i:s')) ?>';
-    const RANGE_END_ISO   = '<?= h($endDT->format('Y-m-d H:i:s')) ?>';
-    const OPS_FROM_SERVER = <?= json_encode($opsOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-    let chartInstances = {};
-    let OPS_CACHE = [];
-    let OPS_ENABLED = true;
-    let DEV_FILTER_COLLAPSED = false; // kullanılmıyor ama kalsın
-
-    // EKLENDİ: dataZoom ile görünür zaman aralığı (global)
-    window.ZOOM_RANGE = null; // { startTs, endTs, startIso, endIso, startPct, endPct, deviceId }
-
-    // EKLENDİ: OPS_FROM_SERVER -> OPS_CACHE (ISO T ile)
-    OPS_CACHE = (OPS_FROM_SERVER || []).map(o => ({
-      id: o.id,
-      name: o.ad,
-      start: (o.baslangic || '').replace(' ','T'),
-      end: (o.bitis ? o.bitis.replace(' ','T') : RANGE_END_ISO.replace(' ','T')),
-      qty: o.miktar,
-      unit: o.birim
-    }));
-
-    // Yardımcılar
-    function parseTs(str){
-      if(!str) return NaN;
-      return Date.parse(String(str).replace(' ','T'));
-    }
-    function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; }
-    function fmtDisp(ts){ const d=new Date(ts); if(!Number.isFinite(+d)) return '-'; return fmt(d).replace('T',' '); } // Ekran tarihi
-    function selectedDeviceIds(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) {
-        const all = [...sel.options].map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        const chosen = [...sel.options].filter(o=>o.selected).map(o=>parseInt(o.value,10)).filter(n=>!isNaN(n));
-        return chosen.length ? chosen : all;
-      }
-      // Geriye dönük: checkbox varsa
-      const box=document.getElementById('deviceFilter'); 
-      if(!box) return (DEVICES||[]).map(d=>d.cihaz_id);
-      const ids=[...box.querySelectorAll('input[type=checkbox]')].filter(i=>i.checked).map(i=>parseInt(i.value,10));
-      return ids.length? ids : (DEVICES||[]).map(d=>d.cihaz_id);
-    }
-
-    // EKLENDİ: Cihaz seçimi yardımcıları
-    function refreshSelectedCount(){
-      const total = (DEVICES||[]).length;
-      const selCount = selectedDeviceIds().length;
-      const el = document.getElementById('devSelCount');
-      if (el) el.textContent = `Seçili: ${selCount}/${total}`;
-    }
-    function initDeviceFilter(){
-      const sel = document.getElementById('deviceSelect');
-      if (sel) sel.addEventListener('change', refreshSelectedCount);
-      refreshSelectedCount();
-    }
-    function selectAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=true);
-      refreshSelectedCount();
-    }
-    function clearAllDevices(){
-      const sel=document.getElementById('deviceSelect'); if(!sel) return;
-      [...sel.options].forEach(o=>o.selected=false);
-      refreshSelectedCount();
-    }
-    function refreshDeviceChips(){ /* listbox kullanılıyor; no-op */ }
-
-    function buildUrl(start, end){
-      const params = new URLSearchParams();
-      if(start) params.set('start', start);
-      if(end)   params.set('end',   end);
-      const ids = selectedDeviceIds();
-      ids.forEach(id=>params.append('dev[]', String(id)));
-      // Mevcut sayfanın yolu (grafikler.php ya da grafiker1.php fark etmez)
-      const basePath = window.location.pathname;
-      const qs = params.toString();
-      return basePath + (qs ? ('?'+qs) : '');
-    }
-    function goRangeStartEnd(startDate, endDate){
-      const s = fmt(startDate), e = fmt(endDate);
-      window.location = buildUrl(s,e);
-    }
+    // Veri köprüleri (kısa inline; güvenlik eklentileri genelde küçük bloklara izin verir)
+    window.DEVICES = <?= json_encode($devicesOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    window.USE_DATE_FILTER = <?= $useDateFilter ? 'true' : 'false' ?>;
+    window.RANGE_START_ISO = '<?= h($startDT->format('Y-m-d H:i:s')) ?>';
+    window.RANGE_END_ISO   = '<?= h($endDT->format('Y-m-d H:i:s')) ?>';
+    window.OPS_FROM_SERVER = <?= json_encode($opsOut, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    window.OP_FILTER_ID = <?= (int)($overrideOpId ?: 0) ?>;
+  </script>
+  <script src="assets/js/grafikler.bundle.js" defer></script>
     function allData(){
       // Start/end olmadan, dev[] korunarak
       window.location = buildUrl(null,null);
@@ -1017,8 +1041,16 @@ $genMs = round((microtime(true)-$started)*1000,2);
             {
               xAxis: localIso(new Date(aa)),
               label:{
-                show:true, formatter: label, color:'#fff',
-                backgroundColor: labelBg, padding:[2,4], borderRadius:3, fontSize:10, lineHeight:12
+                show:true,
+                formatter: label,
+                color:'#fff',
+                backgroundColor: labelBg,
+                padding:[2,4],
+                borderRadius: 3,
+                fontSize: 10,
+                lineHeight: 12,
+                position: 'insideTop',   // EKLENDİ: Tarife yazıları içeride üstte
+                distance: 2
               },
               itemStyle:{ color: fill }
             },
@@ -1047,31 +1079,30 @@ $genMs = round((microtime(true)-$started)*1000,2);
         if(!o.start || !o.end) return;
         const name = (o.name || '').trim();
         const qtyStr = (o.qty !== null && o.qty !== undefined && o.qty !== '') ? (o.qty + (o.unit ? ' '+o.unit : '')) : '';
-        // Etiket içeriği
+        // Tek satır: "Ad - MiktarBirim"
         let labelTxt = name || 'Operasyon';
-        if(qtyStr) labelTxt += '\n' + qtyStr;
-        // Çok uzun ise kısalt
+        if(qtyStr) labelTxt += ' - ' + qtyStr;
         if(labelTxt.length > 28){
           labelTxt = labelTxt.slice(0,25)+'…';
         }
         areas.push([
           {
             xAxis: o.start,
-            // Her alanın kendi label'ı
             label:{
               show:true,
+              position: 'top',     // Üste taşı
+              distance: 10,        // Tarifenin üstünde dursun
               formatter: labelTxt,
               color:'#ffffff',
               backgroundColor:'rgba(14,201,176,0.70)',
               padding:[3,5],
               borderRadius:4,
-              lineHeight:14,
+              lineHeight:12,
               fontSize:11
             }
           },
           { xAxis: o.end }
         ]);
-        // Başlangıç ve bitiş çizgileri (istersen kaldırabilirsin)
         lines.push({ xAxis:o.start }, { xAxis:o.end });
       });
       return { areas, lines };
@@ -1083,32 +1114,40 @@ $genMs = round((microtime(true)-$started)*1000,2);
     // ECharts ile grafik kur
     function buildCharts(){
       const container=document.getElementById('charts'); if(!container) return;
+      stageLog('buildCharts_start');
 
       // Temizle (yeniden kurulum)
       container.innerHTML = '';
       chartInstances = {};
+      stageLog('container_cleared');
 
       // Seçili cihazlar
       const ids = selectedDeviceIds();
       const devicesToShow = (DEVICES||[]).filter(d=> ids.includes(d.cihaz_id));
+      stageLog('selected_ids='+JSON.stringify(ids));
+      stageLog('devicesToShow_count='+(devicesToShow.length));
       if(!devicesToShow.length){
         console.warn('Seçili cihaz bulunamadı.');
+        stageLog('NO_DEVICES');
         return;
       }
 
-      // MERKEZİ RENKLER (EKLENDİ / varsa sabit kalsın)
+      // MERKEZİ RENKLER
       const CHART_COLORS = (typeof window!=='undefined' && window.CHART_COLORS) || {
-        text: '#777a80ff',
-        legendText: '#878a91ff',
-        axisLine: '#475569',
-        gridLine: 'rgba(71,85,105,0.25)',
-        zoomText: '#0f172a',
-        pointerLine: '#475569',
-        pointerBg: '#0f172a',
-        pointerFg: '#ffffff'
+        text: '#f1f5f9',          // Eksen ve değer metinleri (açık)
+        legendText: '#f1f5f9',    // (legend kapalı ama tutarlı kalsın)
+        axisLine: '#94a3b8',      // Daha açık çizgi
+        gridLine: 'rgba(241,245,249,0.25)', // İnce açık grid
+        zoomText: '#f1f5f9',      // dataZoom yazıları
+        pointerLine: '#cbd5e1',   // İmleç çizgisi açıldı
+        pointerBg: 'rgba(15,23,42,0.85)', // Koyu zemin
+        pointerFg: '#ffffff'      // Beyaz yazı
       };
 
-      // Global aralık (minIso / maxIso eksikse doldur)
+      // EKLENDİ: Seri renk paleti (checkbox ve grafik için ortak)
+      const palette = window.SERIES_PALETTE || ['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b'];
+
+      // Global aralık
       const minIso = RANGE_START_ISO.replace(' ','T');
       const maxIso = RANGE_END_ISO.replace(' ','T');
 
@@ -1117,7 +1156,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
         const title = document.createElement('div');
         title.textContent = dev.label || ('Cihaz ' + dev.cihaz_id);
         title.style.fontSize='12px';
-        title.style.color = CHART_COLORS.text; // DEĞİŞTİ
+        title.style.color = CHART_COLORS.text;
         title.style.margin='6px 0';
 
         // Satır: Grafik + yan panel
@@ -1147,9 +1186,12 @@ $genMs = round((microtime(true)-$started)*1000,2);
         const btnSummary = document.createElement('button');
         btnSummary.className='btn btn-outline btn-xs';
         btnSummary.textContent='Özet Rapor';
+        btnSummary.type = 'button'; // EKLENDİ
+
         const btnDetail = document.createElement('button');
         btnDetail.className='btn btn-primary btn-xs';
         btnDetail.textContent='Detaylı Rapor';
+        btnDetail.type = 'button'; // EKLENDİ
         grp2.append(btnSummary, btnDetail);
 
         // EKLENDİ: Seri görünürlük kutuları (yalnızca ham veri serileri)
@@ -1168,7 +1210,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
         scrollBox.className = 'series-toggles';
 
         const seriesToggleDefs = [];
-        const primaryMatch = 'toplam aktif gü'; // Başlangıcı bu olan seri seçilecek
+        const primaryMatch = 'toplam aktif gü';
         let foundPrimary = false;
 
         (dev.series||[]).forEach((s, idx)=>{
@@ -1186,16 +1228,20 @@ $genMs = round((microtime(true)-$started)*1000,2);
           rowTog.style.userSelect='none';
           rowTog.style.padding='2px 0';
 
+          const col = palette[idx % palette.length]; // Seri rengi
+
           const cb = document.createElement('input');
           cb.type='checkbox';
-          cb.checked = isPrimary;              // DEĞİŞTİ: Sadece hedef seri açık
+          cb.checked = isPrimary;
           cb.style.margin='0';
           cb.style.width='14px';
           cb.style.height='14px';
-          cb.style.accentColor='#0ea5e9';
+          cb.style.accentColor = col;              // checkbox rengi seriyle aynı
 
           const txt = document.createElement('span');
           txt.textContent = nm;
+          txt.style.color = col; // (seri rengi; bıraktık)
+
           rowTog.append(cb, txt);
           scrollBox.appendChild(rowTog);
           seriesToggleDefs.push({ name: nm, input: cb });
@@ -1241,7 +1287,8 @@ $genMs = round((microtime(true)-$started)*1000,2);
         }
         setSideRange(initialStart, initialEnd);
 
-        const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
+        // PALETTE (yukarı taşındı: hem checkbox renkleri hem seri renkleri için tek kaynak)
+        // const palette=['#1d9bf0','#14c9b0','#ff8a00','#ff5d6c','#8b5cf6','#22c55e','#f59e0b']; // seri renk paleti
 
         // Veri serileri
         const series = (dev.series||[]).map((s,idx)=>{
@@ -1307,13 +1354,15 @@ $genMs = round((microtime(true)-$started)*1000,2);
             data:[],
             silent:true,
             markArea:{
-              z: 5,
-              label:{ show:false }, // Alan içi label'ları tek tek tanımladık
+              z: 7,           // YÜKSELTİLDİ
+              zlevel: 1,      // Ayrı katmana al
+              label:{ show:false },
               itemStyle:{ color:'rgba(20,201,176,0.18)' },
               data: areas
             },
             markLine:{
-              z: 6,
+              z: 8,           // YÜKSELTİLDİ
+              zlevel: 1,
               symbol:'none',
               label:{ show:false },
               lineStyle:{ color:'#14c9b0', width:1.2, type:'solid' },
@@ -1345,13 +1394,14 @@ $genMs = round((microtime(true)-$started)*1000,2);
 
         const option = {
           color: palette,
-          grid:{ left:leftPad, right:18, top:72, bottom:44 },
+          grid:{ left:leftPad, right:18, top:56, bottom:44 },
           axisPointer:{
             link: [{ xAxisIndex: 'all' }],
             label: {
               show: true,
               backgroundColor: CHART_COLORS.pointerBg,   // GÜNCELLENDİ
               color: CHART_COLORS.pointerFg,              // GÜNCELLENDİ
+
               borderColor: '#1e293b',                    // GÜNCELLENDİ
               borderWidth: 1,
               padding: [4,6],
@@ -1368,33 +1418,41 @@ $genMs = round((microtime(true)-$started)*1000,2);
             crossStyle:{ color: CHART_COLORS.pointerLine }                           // GÜNCELLENDİ
           },
           tooltip:{ trigger:'axis', order:'valueDesc', axisPointer:{ type:'cross' } },
-          legend:{
-            type:'scroll',
-            top: 4,
-            left: 8,
-            padding: [0,0,8,0],
-            itemGap: 14,
-            pageIconColor:'#0ea5e9',
-            pageTextStyle:{ color: CHART_COLORS.legendText }, // GÜNCELLENDİ
-            selector:[
-              {type:'all', title:'Tümünü seç'},
-              {type:'inverse', title:'Tersini seç'}
-            ],
-            textStyle:{ color: CHART_COLORS.legendText }       // GÜNCELLENDİ
+          legend:{ show:false },
+          toolbox:{
+            show:true,
+            right:8,
+            bottom:4,          // DEĞİŞTİ: Aşağı sağ köşe (legend ile çakışmaz)
+            top: undefined,    // üstten kaldır
+            orient:'horizontal',
+            itemSize:16,
+            z:20,
+            feature:{
+              saveAsImage:{ title:'Kaydet' },
+              dataZoom:{
+                title:{ zoom:'Yakınlaştır', back:'Geri' }
+              },
+              restore:{ title:'Sıfırla' }
+            },
+            iconStyle:{
+              borderColor:'#0f172a'
+            },
+            emphasis:{
+              iconStyle:{ color:'#0ea5e9' }
+            }
           },
-          toolbox:{ show:true, right:8, feature:{ saveAsImage:{}, dataZoom:{}, restore:{} } },
           xAxis:{
             type:'time',
             min: minIso || undefined,
             max: maxIso || undefined,
-            axisLabel:{ color: CHART_COLORS.text },                 // GÜNCELLENDİ
-            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }}, // GÜNCELLENDİ
-            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }} // GÜNCELLENDİ
+            axisLabel:{ color: CHART_COLORS.text },
+            axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
+            splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
           },
           yAxis:{
             type:'value',
             scale:true,
-            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 }, // GÜNCELLENDİ
+            axisLabel:{ color: CHART_COLORS.text, fontSize: 11, margin: 8 },
             axisLine:{ lineStyle:{ color: CHART_COLORS.axisLine }},
             splitLine:{ lineStyle:{ color: CHART_COLORS.gridLine }}
           },
@@ -1458,13 +1516,25 @@ $genMs = round((microtime(true)-$started)*1000,2);
         })();
 
         // Rapor butonları
-        btnSummary.addEventListener('click', ()=>{
-          const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
-          showDeviceReportSummary(dev, lr.startTs, lr.endTs);
+        btnSummary.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation(); // EKLENDİ
+          try{
+            const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
+            showDeviceReportSummary(dev, lr.startTs, lr.endTs);
+          }catch(err){
+            console.error('Özet Rapor açılırken hata:', err);
+            alert('Özet rapor açılamadı. Konsolu kontrol edin.');
+          }
         });
-        btnDetail.addEventListener('click', ()=>{
-          const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
-          showDeviceReportDetailed(dev, lr.startTs, lr.endTs);
+        btnDetail.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation(); // EKLENDİ
+          try{
+            const lr = chartInstances[dev.cihaz_id]?.lastRange || { startTs: initialStart, endTs: initialEnd };
+            showDeviceReportDetailed(dev, lr.startTs, lr.endTs);
+          }catch(err){
+            console.error('Detaylı Rapor açılırken hata:', err);
+            alert('Detaylı rapor açılamadı. Konsolu kontrol edin.');
+          }
         });
 
         window.addEventListener('resize', ()=> ec.resize());
@@ -1485,6 +1555,7 @@ $genMs = round((microtime(true)-$started)*1000,2);
       }catch(e){ console.warn('Connect hatası', e); }
 
       console.log('ECharts kurulum tamam. Grafik sayısı:', Object.keys(chartInstances).length);
+      stageLog('charts_done='+Object.keys(chartInstances).length);
     } // buildCharts sonu
 
     // ---------- Raporlama yardımcıları ----------
@@ -1537,6 +1608,24 @@ $genMs = round((microtime(true)-$started)*1000,2);
 
       return { n, min, max, mean, median, p10, p90, std, sum, first, last, delta, absDelta, minAt, maxAt, medDt, gapCnt, gapTotal };
     }
+    function integrateEnergy(points){
+      const normalized = (points||[]).map(p=>{
+        const t = Date.parse((p[0] ?? p.x ?? '').toString());
+        const y = Number(p[1] ?? p.y);
+        return Number.isFinite(t) && Number.isFinite(y) ? { t, y } : null;
+      }).filter(Boolean).sort((a,b)=>a.t-b.t);
+      if(normalized.length < 2) return NaN;
+      let energy = 0;
+      for(let i=1;i<normalized.length;i++){
+        const prev = normalized[i-1];
+        const curr = normalized[i];
+        const dtMs = curr.t - prev.t;
+        if(dtMs <= 0) continue;
+        const avgP = (prev.y + curr.y) / 2;
+        energy += avgP * (dtMs / 3600000); // assuming kW readings, result in kWh
+      }
+      return energy;
+    }
     function within(ts, s, e){ return ts>=s && ts<=e; }
 
     // EKLENDİ: Hangi seri adlarının kalın gösterileceği
@@ -1554,16 +1643,25 @@ $genMs = round((microtime(true)-$started)*1000,2);
       let header = document.createElement('header');
       let h = document.createElement('h3'); h.textContent = title;
       let x = document.createElement('button'); x.className='btn-close'; x.textContent='Kapat';
-      const close=()=>{ if(overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+      const onEsc = (e)=>{ if(e.key==='Escape'){ close(); } }; // DEĞİŞTİ
+      const close = ()=>{ 
+        if(overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        document.removeEventListener('keydown', onEsc);         // DEĞİŞTİ
+      };
+
       x.addEventListener('click', close);
       header.append(h,x);
-      // FIX: content eksikti -> oluşturuldu
+
       let content = document.createElement('div');
       content.className = 'content';
       content.innerHTML = htmlContent;
-      modal.append(header, content); overlay.appendChild(modal);
+
+      modal.append(header, content); 
+      overlay.appendChild(modal);
+
       overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
-      document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ close(); document.removeEventListener('keydown', esc); }});
+      document.addEventListener('keydown', onEsc);              // DEĞİŞTİ
       document.body.appendChild(overlay);
     }
 
@@ -1576,7 +1674,8 @@ $genMs = round((microtime(true)-$started)*1000,2);
           return Number.isFinite(t) && within(t, startTs, endTs);
         });
         const st = computeSeriesStats(pts);
-        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st }); // unit eklendi
+        const energy = integrateEnergy(pts);
+        rows.push({ name: s.name || 'Seri', unit: s.unit || '', stats: st, energy });
       });
       const head = `<div class="muted">Cihaz: ${escapeHtml(dev.label || ('Cihaz '+dev.cihaz_id))} — Aralık: ${fmtDisp(startTs)} → ${fmtDisp(endTs)}</div>`;
       function fmtNum(v, d=3){ if(!Number.isFinite(v)) return '-'; return v.toLocaleString('tr-TR', { maximumFractionDigits:d }); }
@@ -1584,18 +1683,20 @@ $genMs = round((microtime(true)-$started)*1000,2);
       let html = `
         ${head}
         <table style="margin-top:8px">
-          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th></tr></thead>
+          <thead><tr><th>Seri</th><th>Min</th><th>Maks</th><th>Ortalama</th><th>Toplam</th><th>Enerji (kWh)</th></tr></thead>
           <tbody>
       `;
       rows.forEach(r=>{
         const s=r.stats, u=r.unit, nm=r.name || 'Seri';
         const emph = isEmphSeries(nm);
+        const energyText = Number.isFinite(r.energy) ? `${fmtNum(r.energy)} kWh` : '-';
         html += `<tr${emph?' class="emph-row"':''}>
           <td>${escapeHtml(nm)}</td>
           <td>${withUnit(s.min,u)}</td>
           <td>${withUnit(s.max,u)}</td>
           <td>${withUnit(s.mean,u)}</td>
           <td>${withUnit(s.delta,u)}</td>
+          <td>${energyText}</td>
         </tr>`;
       });
       html += `</tbody></table>`;
@@ -1681,6 +1782,58 @@ $genMs = round((microtime(true)-$started)*1000,2);
       initDeviceFilter();
       buildCharts();
     });
+</script>
+<script>
+  (function(){
+    const list = document.getElementById('debugChecklistList');
+    if(!list) return;
+    function setStatus(key, state, detail){
+      const el = list.querySelector(`[data-check="${key}"]`);
+      if(!el) return;
+      const badge = el.querySelector('.status');
+      if(!badge) return;
+      badge.textContent = detail;
+      badge.classList.remove('status-ok','status-error','status-pending');
+      badge.classList.add(state === 'ok' ? 'status-ok' : state === 'error' ? 'status-error' : 'status-pending');
+    }
+
+    const getDevices = ()=> (typeof DEVICES !== 'undefined' ? DEVICES : (Array.isArray(window.DEVICES) ? window.DEVICES : []));
+    const getOpsCache = ()=> (typeof OPS_CACHE !== 'undefined' ? OPS_CACHE : (Array.isArray(window.OPS_CACHE) ? window.OPS_CACHE : []));
+
+    const checks = {
+      internet: () => ({ state: navigator.onLine ? 'ok' : 'error', detail: navigator.onLine ? 'Tarayıcı çevrimiçi' : 'Tarayıcı çevrimdışı' }),
+      assets: () => {
+        const ready = typeof window.Chart === 'function' && typeof window.echarts === 'object' && typeof window.luxon !== 'undefined';
+        return { state: ready ? 'ok' : 'error', detail: ready ? 'Chart.js + ECharts + Luxon yüklü' : 'Bazı kütüphaneler eksik' };
+      },
+      data: () => {
+        const devices = getDevices();
+        const has = Array.isArray(devices) && devices.length > 0;
+        return { state: has ? 'ok' : 'error', detail: has ? `Cihaz: ${devices.length} adet` : 'Cihaz verisi boş' };
+      },
+      ops: () => {
+        const ops = getOpsCache();
+        const has = Array.isArray(ops) && ops.length > 0;
+        return { state: has ? 'ok' : 'error', detail: has ? `Operasyon: ${ops.length} adet` : 'Operasyon verisi boş' };
+      },
+      fetch: () => fetch('assets/js/echarts.min.js', { cache: 'no-store' }).then(()=>({ state: 'ok', detail: 'assets/js/echarts.min.js erişilebilir' })).catch(()=>({ state: 'error', detail: 'assets/js/echarts.min.js yüklenemedi' }))
+    };
+
+    function evaluate(){
+      Object.entries(checks).forEach(([key, fn])=>{
+        const result = fn();
+        if(result instanceof Promise){
+          setStatus(key,'pending','Kontrol ediliyor…');
+          result.then(res=> setStatus(key, res.state, res.detail)).catch(()=> setStatus(key,'error','Kontrol sırasında hata'));
+        } else {
+          setStatus(key, result.state, result.detail);
+        }
+      });
+    }
+
+    evaluate();
+    window.addEventListener('load', evaluate);
+  })();
 </script>
 </body>
 </html>
