@@ -17,11 +17,11 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Plaka</th>
+                    <th>Plaka</th>  
                     <th>Port</th>
                     <th>Dolum Başlama</th>
                     <th>Dolum Bitiş</th>
-                    <th>Toplam (Kg)</th>
+                    <th>Toplam (Ton)</th>
                     <th>Durdurma Şekli</th>
                     <th>İşlem Süresi</th>
                 </tr>
@@ -73,101 +73,171 @@ document.addEventListener('DOMContentLoaded', function () {
     const dailyTotalChartElement = document.getElementById('daily-total-chart');
     const dailyTotalChart = echarts.init(dailyTotalChartElement);
 
-    function formatNumber(num) {
-        return new Intl.NumberFormat('tr-TR').format(num);
+    function formatTon(num) {
+        const n = Number(num);
+        return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            .format(Number.isFinite(n) ? n : 0);
+    }
+
+    function toDateSafe(val) {
+        if (!val) return null;
+        const iso = typeof val === 'string' ? val.replace(' ', 'T') : val;
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function computeStats(rows) {
+        const total = rows.length;
+        const completedRows = rows.filter(r => !!r.bitis_zamani);
+        const ongoing = total - completedRows.length;
+        const todayStr = new Date().toISOString().slice(0,10);
+        const todayOps = rows.filter(r => (r.baslama_zamani || '').slice(0,10) === todayStr).length;
+        const totalTon = rows.reduce((s, r) => s + (parseFloat(r.toplam_ton) || 0), 0);
+        const avgTon = total ? totalTon / total : 0;
+        const todayCompletedRows = completedRows.filter(r => (r.bitis_zamani || '').slice(0,10) === todayStr);
+        const todayTon = todayCompletedRows.reduce((s, r) => s + (parseFloat(r.toplam_ton) || 0), 0);
+        const lastOpTime = completedRows.map(r => r.bitis_zamani).sort().slice(-1)[0] || null;
+        return {
+            total_operations: total,
+            completed_operations: completedRows.length,
+            ongoing_operations: ongoing,
+            today_operations: todayOps,
+            total_weight_ton: totalTon,
+            avg_weight_ton: avgTon,
+            today_weight_ton: todayTon,
+            today_completed: todayCompletedRows.length,
+            last_operation_time: lastOpTime
+        };
     }
 
     function updateUI(response) {
-        const { data, stats } = response;
+        const data = Array.isArray(response) ? response
+                    : Array.isArray(response?.data) ? response.data
+                    : [];
+        const stats = response?.stats || computeStats(data);
 
-        // İstatistikleri Güncelle
-        document.getElementById('stats-total-operations').innerText = stats.total_operations;
-        document.getElementById('stats-total-operations-card').innerText = stats.total_operations;
-        document.getElementById('stats-completed').innerText = stats.completed_operations;
-        document.getElementById('stats-ongoing').innerText = stats.ongoing_operations;
-        document.getElementById('stats-today-ops').innerText = stats.today_operations;
-        document.getElementById('stats-total-weight').innerText = formatNumber(stats.total_weight);
-        document.getElementById('stats-avg-weight').innerText = formatNumber(Math.round(stats.avg_weight));
-        document.getElementById('stats-today-weight').innerText = formatNumber(stats.today_weight);
-        document.getElementById('stats-today-completed').innerText = stats.today_completed;
-        document.getElementById('stats-last-op-time').innerText = stats.last_operation_time;
+        document.getElementById('stats-total-operations-card').innerText = stats.total_operations ?? 0;
+        document.getElementById('stats-completed').innerText = stats.completed_operations ?? 0;
+        document.getElementById('stats-ongoing').innerText = stats.ongoing_operations ?? 0;
+        document.getElementById('stats-today-ops').innerText = stats.today_operations ?? 0;
+        document.getElementById('stats-total-weight').innerText = formatTon(stats.total_weight_ton) + ' Ton';
+        document.getElementById('stats-avg-weight').innerText = formatTon(stats.avg_weight_ton) + ' Ton';
+        document.getElementById('stats-today-weight').innerText = formatTon(stats.today_weight_ton) + ' Ton';
+        document.getElementById('stats-today-completed').innerText = stats.today_completed ?? 0;
+        document.getElementById('stats-last-op-time').innerText = stats.last_operation_time
+            ? new Date(String(stats.last_operation_time).replace(' ','T')).toLocaleString('tr-TR') : 'Yok';
 
-        // Tabloyu Güncelle
-        const tableBody = document.getElementById('tir-table-body');
-        tableBody.innerHTML = ''; // Tabloyu temizle
-        if (data.length === 0) {
-            document.getElementById('empty-state-container').style.display = 'block';
-            return;
+        const table = document.querySelector('.data-table');
+        if (table && !table.querySelector('thead')) {
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Plaka</th>
+                        <th>Port</th>
+                        <th>Başlama</th>
+                        <th>Bitiş</th>
+                        <th>Toplam (Ton)</th>
+                        <th>Durdurma</th>
+                        <th>Süre (dakikada Ton)</th>
+                    </tr>
+                </thead>
+                <tbody id="tir-table-body"></tbody>
+            `;
         }
-        
+
+        const tableBody = document.getElementById('tir-table-body');
+        tableBody.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            document.getElementById('empty-state-container').style.display = 'block';
+            dailyTotalChart.clear();
+            document.getElementById('chart-status').style.display = 'block';
+            return;
+        } else {
+            document.getElementById('empty-state-container').style.display = 'none';
+            document.getElementById('chart-status').style.display = 'none';
+        }
+
         data.forEach(row => {
+            const start = toDateSafe(row.baslama_zamani);
+            const end = toDateSafe(row.bitis_zamani);
+
             let durationText = 'Devam ediyor...';
-            if (row.dolumbaslama && row.dolumbitis) {
-                const start = new Date(row.dolumbaslama);
-                const end = new Date(row.dolumbitis);
+            let rateText = '';
+            if (start && end) {
                 const diffMs = end - start;
                 const diffHrs = Math.floor(diffMs / 3600000);
                 const diffMins = Math.floor((diffMs % 3600000) / 60000);
                 const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                durationText = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}:${String(diffSecs).padStart(2, '0')}`;
+                durationText = `${String(diffHrs).padStart(2,'0')}:${String(diffMins).padStart(2,'0')}:${String(diffSecs).padStart(2,'0')}`;
+
+                const minutes = diffMs / 60000;
+                if (minutes > 0) {
+                    const rateTonPerMin = (parseFloat(row.toplam_ton) || 0) / minutes;
+                    rateText = ` (${formatTon(rateTonPerMin)} Ton/dk)`;
+                }
             }
+
+            const portDisplay = (row.port ?? row.tir_no) ?? '';
 
             const tr = `
                 <tr>
                     <td class="plate-number">${row.plaka || ''}</td>
-                    <td>${row.port || ''}</td>
-                    <td>${row.dolumbaslama ? new Date(row.dolumbaslama).toLocaleString('tr-TR') : '-'}</td>
-                    <td>${row.dolumbitis ? new Date(row.dolumbitis).toLocaleString('tr-TR') : '<span style="color: #f39c12; font-weight: bold;">Devam ediyor</span>'}</td>
-                    <td class="amount">${formatNumber(row.toplam || 0)} Kg</td>
-                    <td>${row.durdurma_sekli || 'Manuel'}</td>
-                    <td>${durationText}</td>
+                    <td>${portDisplay}</td>
+                    <td>${start ? start.toLocaleString('tr-TR') : '-'}</td>
+                    <td>${end ? end.toLocaleString('tr-TR') : '<span style="color:#f39c12;font-weight:bold;">Devam ediyor</span>'}</td>
+                    <td class="amount">${formatTon(row.toplam_ton || 0)} Ton</td>
+                    <td>${row.durdurma_sekli || (end ? 'Manuel' : '-')}</td>
+                    <td>${durationText}${rateText}</td>
                 </tr>
             `;
-            tableBody.innerHTML += tr;
+            tableBody.insertAdjacentHTML('beforeend', tr);
         });
 
-        // Grafiği Güncelle
         const dailyTotals = {};
         data.forEach(row => {
-            if (row.dolumbaslama) {
-                const day = row.dolumbaslama.slice(0, 10);
-                dailyTotals[day] = (dailyTotals[day] || 0) + (parseFloat(row.toplam) || 0);
-            }
+            const day = (row.baslama_zamani || '').slice(0,10);
+            if (day) dailyTotals[day] = (dailyTotals[day] || 0) + (parseFloat(row.toplam_ton) || 0);
         });
 
         const days = Object.keys(dailyTotals).sort();
-        const totals = days.map(day => dailyTotals[day]);
+        const totals = days.map(day => Number(dailyTotals[day].toFixed(2)));
 
         dailyTotalChart.setOption({
-            title: { text: 'Günlük Toplam Yüklenen Miktar', left: 'center' },
-            tooltip: { trigger: 'axis', formatter: '{b}<br/>{a}: {c} kg' },
+            title: { text: 'Günlük Toplam Yüklenen (Ton)', left: 'center' },
+            tooltip: { trigger: 'axis', formatter: params => {
+                const p = params[0];
+                return `${p.axisValue}<br/>Toplam: ${formatTon(p.data)} Ton`;
+            }},
             xAxis: { type: 'category', data: days },
-            yAxis: { type: 'value', name: 'Kg' },
+            yAxis: { type: 'value', name: 'Ton' },
             series: [{ name: 'Toplam', type: 'bar', data: totals, color: '#00b894' }],
             dataZoom: [{ type: 'slider', bottom: '10px' }, { type: 'inside' }],
             grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true }
         });
     }
 
-    function fetchData() {
-        fetch('api/get_tir_data.php')
-            .then(response => response.json())
-            .then(response => {
-                if (response.status === 'success') {
-                    updateUI(response);
-                } else {
-                    console.error('API Hatası:', response.message);
-                    document.getElementById('empty-state-container').style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Fetch Hatası:', error);
-                document.getElementById('empty-state-container').style.display = 'block';
-            });
+    async function fetchData() {
+        try {
+            const res = await fetch('api/get_tir_data.php', { cache: 'no-store' });
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); }
+            catch (e) {
+                console.error('JSON parse hatası. Dönen metin:', text);
+                throw e;
+            }
+            if (json.status && json.status !== 'success' && !Array.isArray(json.data)) {
+                console.error('API Hatası:', json.message || json.status);
+                return;
+            }
+            updateUI(json);
+        } catch (error) {
+            console.error('Fetch Hatası:', error);
+        }
     }
 
-    // Sayfa yüklendiğinde ve her 30 saniyede bir verileri yenile
     fetchData();
-    setInterval(fetchData, 30000); 
+    setInterval(fetchData, 30000);
 });
 </script>
