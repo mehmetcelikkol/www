@@ -1,0 +1,453 @@
+/* ...existing code... */
+:root{
+  --bg:#0b1020;
+  --surface:#0f172a;
+  --text:#0b0f19;
+  --muted:#64748b;
+  --primary:#1f7aed;
+  --primary-ink:#ffffff;
+  --accent:#f59e0b;
+  --border:#e2e8f0;
+  --card:#ffffff;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background:#f8fafc;
+}
+
+/* Container */
+.container{max-width:1120px;margin:0 auto;padding:0 16px}
+
+/* Header / Nav */
+.site-header{
+  position:sticky;top:0;z-index:50;
+  background:#ffffffcc;backdrop-filter:saturate(180%) blur(6px);
+  border-bottom:1px solid var(--border);
+}
+.nav-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-logo{height:144px;width:auto}
+.brand-name{font-weight:700;letter-spacing:.2px}
+
+.nav{position:relative}
+.nav-list{
+  display:flex;gap:16px;list-style:none;margin:0;padding:0;align-items:center;
+}
+.nav-link{color:#0b0f19;text-decoration:none;padding:8px 10px;border-radius:8px}
+.nav-link:hover{background:#f1f5f9}
+
+.nav-toggle{
+  display:none;flex-direction:column;gap:4px;background:transparent;border:0;cursor:pointer;
+}
+.nav-toggle span{display:block;width:24px;height:2px;background:#0b0f19;border-radius:1px}
+
+/* Nav sağ blok */
+.nav-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px}
+.nav-right{display:flex;align-items:center;gap:14px;margin-left:auto}
+
+/* Dil seçimi en sağda, bayraklı butonlar */
+.lang-switch{display:flex;gap:8px;align-items:center}
+.lang-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;border:1px solid var(--border);background:#fff;border-radius:10px;
+  cursor:pointer;font-weight:600;color:#0b0f19
+}
+.lang-btn .flag{font-size:16px;line-height:1}
+.lang-btn.is-active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;font-weight:600}
+.btn-primary{background:var(--primary);color:var(--primary-ink);box-shadow:0 6px 16px rgba(31,122,237,.25)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-secondary{background:#e5e7eb;color:#111827}
+.btn-outline{border:1px solid var(--border);background:transparent}
+.btn-ghost{background:transparent;color:#0b0f19}
+
+/* Hero Slider */
+.hero{position:relative}
+.slider{position:relative;overflow:hidden}
+.slides{position:relative;height:560px}           /* EKLENDİ */
+.slide{                                           /* EKLENDİ */
+  position:absolute;inset:0;
+  opacity:0;transform:scale(1.02);
+  transition:opacity .6s ease, transform .8s ease;
+}
+.slide.is-active{opacity:1;transform:scale(1);z-index:1} /* EKLENDİ */
+.slide img{width:100%;height:100%;object-fit:cover;display:block} /* EKLENDİ */
+
+/* Slider açıklamalarını ortala */
+.caption{                                        /* EKLENDİ */
+  position:absolute;left:0;right:0;bottom:60px;
+  display:flex;flex-direction:column;gap:12px;
+  align-items:center;justify-content:flex-end;
+  padding:0 24px;color:#fff;text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.caption h1,.caption h2{margin:0;max-width:720px}
+.caption p{margin:0;max-width:640px;color:#e5e7eb}
+.actions{display:flex;gap:10px;margin-top:6px}
+
+/* Slider kontrol butonları üstte görünsün */
+.control{ 
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:#0b0f1988;color:#fff;border:1px solid #ffffff55;border-radius:50%;
+  width:52px;height:52px;cursor:pointer;font-size:22px;display:grid;place-items:center;
+  box-shadow:0 6px 16px rgba(2,6,23,.25);
+  z-index:10;
+}
+.control:hover{background:#0b0f19aa}
+.control.prev{left:12px}
+.control.next{right:12px}
+
+/* Noktalar da üstte kalsın */
+.dots{ 
+  position:absolute;bottom:16px;left:0;right:0;display:flex;gap:8px;justify-content:center;
+  z-index:9;
+}
+.dot{width:10px;height:10px;border-radius:50%;background:#ffffff88;border:1px solid #ffffff55;cursor:pointer}
+.dot.is-active{background:#ffffff}
+
+/* Sections */
+.section{padding:56px 0}
+.section.alt{background:#f1f5f9}
+.section-title{text-align:center;margin:0 0 28px 0;font-size:28px}
+
+/* Grids and Cards */
+.grid{display:grid;gap:16px}
+.features{grid-template-columns:repeat(3,1fr)}
+.products{grid-template-columns:repeat(3,1fr)}
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 12px rgba(2,6,23,.06)
+}
+.card img{display:block;width:100%;height:auto}
+.card-body{padding:14px}
+.card h3{margin:10px 14px}
+.card p{margin:0 14px 14px;color:var(--muted)}
+.product .btn{margin:0 14px 14px}
+
+/* Brands */
+.brand-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:center}
+.brand-row img{justify-self:center;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px}
+
+/* Contact */
+.contact-grid{grid-template-columns:2fr 1fr}
+.form{padding:16px}
+.form-row{display:flex;flex-direction:column;margin-bottom:12px}
+.form-row label{font-weight:600;margin-bottom:6px}
+.form-row input,.form-row textarea{
+  padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff;font:inherit
+}
+.contact-info{padding:16px}
+.contact-list{margin:10px 0 0 0;padding:0;list-style:none}
+.contact-list li{margin-bottom:6px;color:var(--muted)}
+
+/* Footer */
+.site-footer{border-top:1px solid var(--border);background:#fff}
+.footer-content{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.footer-content a{text-decoration:none;color:#0b0f19;margin-left:12px}
+.footer-content a:hover{text-decoration:underline}
+
+/* Responsive */
+@media (max-width: 992px){
+  .features,.products{grid-template-columns:repeat(2,1fr)}
+  .slides{height:480px}
+}
+@media (max-width: 720px){
+  .nav-toggle{display:flex}
+  .nav-right{width:100%;justify-content:flex-end}
+  .nav-list{
+    position:absolute;right:0;top:52px;background:#fff;border:1px solid var(--border);
+    flex-direction:column;gap:0;width:220px;border-radius:12px;padding:8px;display:none;
+  }
+  .nav-list.is-open{display:flex}
+  .brand-logo{height:96px}
+  .slides{height:420px}
+  .lang-switch{order:3;margin-left:0}
+}
+
+/* ===== Theme: Neo (sol sabit navbar, modern görünüm) ===== */
+body.theme-neo{
+  --primary:#22d3ee;           /* cyan */
+  --accent:#a78bfa;            /* violet */
+  --border:#dbeafe;
+  --card:#ffffff;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #e0f2fe 0%, transparent 60%),
+    radial-gradient(1200px 600px at 100% 10%, #ede9fe 0%, transparent 60%),
+    #f8fafc;
+  padding-left:260px;           /* sol navbar alanı */
+}
+
+/* Sol sabit navbar */
+.theme-neo .site-header{
+  position:fixed;left:0;top:0;bottom:0;width:260px;z-index:50;
+  background:#ffffffee;backdrop-filter:saturate(180%) blur(8px);
+  border-right:1px solid var(--border);
+  border-bottom:0;
+}
+.theme-neo .nav-bar{flex-direction:column;align-items:stretch;gap:12px;padding:14px}
+.theme-neo .brand{padding:6px 8px}
+.theme-neo .brand-logo{height:128px}
+.theme-neo .nav-right{display:flex;flex-direction:column;gap:10px}
+.theme-neo .nav-list{flex-direction:column;gap:4px}
+.theme-neo .nav-link{padding:10px 12px}
+.theme-neo .lang-switch{margin-top:auto;justify-content:center;padding-top:8px;border-top:1px dashed var(--border)}
+
+/* İçerik: slider ve kartlar */
+.theme-neo .slider{
+  border-radius:20px;overflow:hidden;
+  box-shadow:0 12px 32px rgba(2,6,23,.18);
+}
+.theme-neo .caption{text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.theme-neo .dots{bottom:20px;gap:10px}
+.theme-neo .dot{width:32px;height:6px;border-radius:999px;background:#ffffff66;border-color:#ffffff55}
+.theme-neo .dot.is-active{background:#fff}
+
+.theme-neo .card{
+  border:1px solid var(--border);border-radius:20px;
+  box-shadow:0 8px 24px rgba(2,6,23,.10);
+}
+.theme-neo .section.alt{background:#eef2ff}
+.theme-neo .btn-primary{background:linear-gradient(90deg, var(--primary), var(--accent));color:#fff}
+.theme-neo .brand-row img{filter:grayscale(100%);opacity:.9}
+
+/* Kontroller görünür kalsın */
+.theme-neo .control{z-index:10}
+
+/* Mobilde üstte klasik navbar’a dön */
+@media (max-width: 920px){
+  body.theme-neo{padding-left:0}
+  .theme-neo .site-header{
+    position:sticky;left:auto;top:0;bottom:auto;width:100%;
+    border-right:0;border-bottom:1px solid var(--border);
+  }
+  .theme-neo .nav-bar{flex-direction:row;align-items:center}
+  .theme-neo .nav-right{flex-direction:row}
+  .theme-neo .lang-switch{margin-top:0;border-top:0}
+}
+
+/* ===== Theme: Neo görsellik güçlendirme ===== */
+.theme-neo .site-header{
+  /* Koyu, şık bir panel arkaplanı */
+  background:
+    linear-gradient(180deg, #0b1220 0%, #111827 40%, #1f2937 100%);
+  border-right:1px solid #0f1a2a;
+  color:#e5e7eb;
+}
+.theme-neo .brand-name{color:#e5e7eb}
+.theme-neo .nav-toggle span{background:#e5e7eb}
+
+/* Gösterişli menü öğeleri (pill + gradient hover) */
+.theme-neo .nav-list{flex-direction:column;gap:6px}
+.theme-neo .nav-link{
+  color:#e5e7eb;text-decoration:none;
+  padding:12px 14px;border-radius:999px;border:1px solid #233047;
+  background:#0e1626;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 6px 14px rgba(2,6,23,.35);
+  transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+}
+.theme-neo .nav-link:hover{
+  background:linear-gradient(90deg, rgba(34,211,238,.25), rgba(167,139,250,.25));
+  box-shadow:0 12px 28px rgba(2,6,23,.45);
+  transform:translateY(-1px);
+}
+.theme-neo .nav-link.btn.btn-outline{
+  border-color:#3b4a69;background:transparent;color:#e5e7eb
+}
+.theme-neo .nav-link.btn.btn-outline:hover{
+  background:linear-gradient(90deg, rgba(34,211,238,.25), rgba(167,139,250,.25));
+}
+
+/* Arama çubuğu (panel içinde) */
+.theme-neo .search-bar{
+  display:flex;align-items:center;gap:8px;padding:6px 0;
+}
+.theme-neo .search-bar input{
+  width:100%;min-width:160px;
+  padding:10px 12px;border-radius:12px;border:1px solid #233047;
+  background:#0e1626;color:#e5e7eb;outline:none;
+}
+.theme-neo .search-bar input::placeholder{color:#94a3b8}
+.theme-neo .search-bar button{
+  padding:10px 12px;border-radius:12px;
+  background:linear-gradient(90deg, var(--primary), var(--accent));
+  color:#fff;display:inline-flex;align-items:center;gap:8px;
+}
+
+/* Dil switch panel uyumu */
+.theme-neo .lang-switch{margin-top:auto;justify-content:center;padding-top:12px;border-top:1px dashed #233047}
+.theme-neo .lang-btn{
+  background:#0e1626;color:#e5e7eb;border-color:#233047
+}
+.theme-neo .lang-btn.is-active{
+  background:linear-gradient(90deg, var(--primary), var(--accent));
+  color:#fff;border-color:transparent
+}
+
+/* Mobil: panel üst nav davranışı aynı */
+@media (max-width: 920px){
+  .theme-neo .nav-list{flex-direction:column}
+  .theme-neo .search-bar{padding:6px 8px}
+}
+
+/* Tema değişkenleri: logo panel arkaplanını products alt rengiyle uyumlu yap */
+body.theme-neo{
+  --brand-panel-bg:#eef2ff; /* products .section.alt ile aynı ton */
+}
+
+/* Menü öğeleri arasını iki kat aç (önceden ~6px idi) */
+.theme-neo .nav-list{gap:30px}
+
+@media (max-width: 920px){
+  .theme-neo .nav-list{gap:20px}
+}
+
+/* Logo alanını vurgula: products alt rengiyle panel */
+.theme-neo .brand{
+  background:var(--brand-panel-bg);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:12px;
+  box-shadow:0 8px 24px rgba(2,6,23,.12);
+}
+
+/* Büyük logoya uyum için küçük ince ayar */
+.theme-neo .brand-logo{display:block}
+.theme-neo .brand-name{color:#0b0f19;font-weight:700}
+
+/* Mobilde panel pad ayarı */
+@media (max-width: 920px){
+  .theme-neo .nav-list{gap:12px}
+  .theme-neo .brand{padding:10px}
+}
+
+/* ===== Theme: Aurora (tamamen farklı görünüm, üst cam navbar + neon/glass) ===== */
+body.theme-aurora{
+  --primary:#14b8a6;           /* teal */
+  --accent:#fb7185;            /* rose */
+  --border:#1f2a37;
+  --card:#0b1220cc;            /* yarı saydam kartlar */
+  background:
+    radial-gradient(1000px 400px at 10% -10%, rgba(20,184,166,.20) 0%, transparent 60%),
+    radial-gradient(800px 300px at 90% 0%, rgba(251,113,133,.18) 0%, transparent 60%),
+    #0b1220;
+}
+
+/* Üstte cam efektli navbar */
+.theme-aurora .site-header{
+  position:sticky;top:0;z-index:50;
+  background:linear-gradient(180deg, rgba(17,24,39,.75), rgba(15,23,42,.65));
+  backdrop-filter:saturate(180%) blur(10px);
+  border-bottom:1px solid #1f2a37;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.theme-aurora .nav-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.theme-aurora .brand{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 10px;border-radius:16px;
+  background:linear-gradient(180deg, rgba(20,184,166,.15), rgba(251,113,133,.12));
+  border:1px solid #233047;
+}
+.theme-aurora .brand-logo{height:120px}
+.theme-aurora .brand-name{color:#e5e7eb;font-weight:700}
+
+/* Neon menü öğeleri: yatay, geniş aralık ve glow hover */
+.theme-aurora .nav-right{display:flex;align-items:center;gap:16px}
+.theme-aurora .nav-list{
+  display:flex;align-items:center;gap:26px;list-style:none;margin:0;padding:0;
+}
+.theme-aurora .nav-link{
+  color:#e5e7eb;text-decoration:none;
+  padding:10px 14px;border-radius:999px;
+  background:linear-gradient(180deg, #0e1626, #0b1220);
+  border:1px solid #233047;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 8px 18px rgba(2,6,23,.45);
+  transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+}
+.theme-aurora .nav-link:hover{
+  background:linear-gradient(90deg, rgba(20,184,166,.35), rgba(251,113,133,.35));
+  box-shadow:0 14px 32px rgba(0,0,0,.55);
+  transform:translateY(-1px);
+}
+.theme-aurora .nav-link.btn.btn-outline{
+  background:transparent;border-color:#3b4a69;color:#e5e7eb
+}
+
+/* Dil seçimi butonları */
+.theme-aurora .lang-switch{display:flex;gap:10px;align-items:center}
+.theme-aurora .lang-btn{
+  background:#0e1626;color:#e5e7eb;border:1px solid #233047;border-radius:12px;padding:8px 12px;
+}
+.theme-aurora .lang-btn.is-active{
+  background:linear-gradient(90deg, var(--primary), var(--accent));color:#fff;border-color:transparent
+}
+
+/* Slider: yuvarlatılmış, neon kenar ve maskeli görünüm */
+.theme-aurora .slider{
+  border-radius:26px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 20px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.theme-aurora .slides{height:560px}
+.theme-aurora .slide img{
+  filter:contrast(1.05) saturate(1.05) brightness(.95);
+}
+.theme-aurora .caption{
+  text-shadow:0 2px 12px rgba(0,0,0,.55);
+}
+.theme-aurora .control{
+  background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(15,23,42,.65));
+  border:1px solid rgba(255,255,255,.18);
+}
+.theme-aurora .control:hover{background:linear-gradient(180deg, rgba(20,184,166,.55), rgba(251,113,133,.55))}
+.theme-aurora .dots{gap:12px}
+.theme-aurora .dot{
+  width:28px;height:6px;border-radius:999px;background:#ffffff55;border-color:#ffffff33
+}
+.theme-aurora .dot.is-active{background:#fff}
+
+/* Kartlar: glassmorphism + renkli vurgular */
+.theme-aurora .section{padding:64px 0}
+.theme-aurora .section.alt{
+  background:linear-gradient(180deg, rgba(30,41,59,.35), rgba(2,6,23,.35));
+}
+.theme-aurora .card{
+  background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(15,23,42,.65));
+  border:1px solid rgba(255,255,255,.10);border-radius:20px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 14px 32px rgba(0,0,0,.35);
+}
+.theme-aurora .card h3{color:#e5e7eb}
+.theme-aurora .card p{color:#94a3b8}
+.theme-aurora .btn-primary{background:linear-gradient(90deg, var(--primary), var(--accent));color:#fff}
+.theme-aurora .btn-secondary{background:#0e1626;color:#e5e7eb;border:1px solid #233047}
+
+/* Markalar: hafif invers + opaklık */
+.theme-aurora .brand-row img{
+  filter:grayscale(100%) invert(0%);opacity:.92;background:#0e1626;border-color:#233047
+}
+
+/* Footer koyu cam */
+.theme-aurora .site-footer{
+  background:linear-gradient(180deg, rgba(17,24,39,.75), rgba(15,23,42,.65));
+  border-top:1px solid #1f2a37;color:#e5e7eb
+}
+.theme-aurora .footer-content a{color:#e5e7eb}
+
+/* Mobil düzen: menü açılır, slider yüksekliği azalır */
+@media (max-width: 920px){
+  .theme-aurora .nav-toggle{display:flex}
+  .theme-aurora .nav-right{width:100%;justify-content:flex-end}
+  .theme-aurora .nav-list{
+    position:absolute;right:0;top:52px;background:linear-gradient(180deg, rgba(17,24,39,.95), rgba(15,23,42,.95));
+    border:1px solid #1f2a37;flex-direction:column;gap:12px;width:240px;border-radius:16px;padding:10px;display:none;
+  }
+  .theme-aurora .nav-list.is-open{display:flex}
+  .theme-aurora .slides{height:420px}
+  .theme-aurora .brand-logo{height:96px}
+}

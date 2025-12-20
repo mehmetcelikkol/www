@@ -1,0 +1,171 @@
+/* ...existing code... */
+:root{
+  --bg:#0b1020;
+  --surface:#0f172a;
+  --text:#0b0f19;
+  --muted:#64748b;
+  --primary:#1f7aed;
+  --primary-ink:#ffffff;
+  --accent:#f59e0b;
+  --border:#e2e8f0;
+  --card:#ffffff;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background:#f8fafc;
+}
+
+/* Container */
+.container{max-width:1120px;margin:0 auto;padding:0 16px}
+
+/* Header / Nav */
+.site-header{
+  position:sticky;top:0;z-index:50;
+  background:#ffffffcc;backdrop-filter:saturate(180%) blur(6px);
+  border-bottom:1px solid var(--border);
+}
+.nav-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-logo{height:144px;width:auto}
+.brand-name{font-weight:700;letter-spacing:.2px}
+
+.nav{position:relative}
+.nav-list{
+  display:flex;gap:16px;list-style:none;margin:0;padding:0;align-items:center;
+}
+.nav-link{color:#0b0f19;text-decoration:none;padding:8px 10px;border-radius:8px}
+.nav-link:hover{background:#f1f5f9}
+
+.nav-toggle{
+  display:none;flex-direction:column;gap:4px;background:transparent;border:0;cursor:pointer;
+}
+.nav-toggle span{display:block;width:24px;height:2px;background:#0b0f19;border-radius:1px}
+
+/* Nav sağ blok */
+.nav-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px}
+.nav-right{display:flex;align-items:center;gap:14px;margin-left:auto}
+
+/* Dil seçimi en sağda, bayraklı butonlar */
+.lang-switch{display:flex;gap:8px;align-items:center}
+.lang-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;border:1px solid var(--border);background:#fff;border-radius:10px;
+  cursor:pointer;font-weight:600;color:#0b0f19
+}
+.lang-btn .flag{font-size:16px;line-height:1}
+.lang-btn.is-active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;font-weight:600}
+.btn-primary{background:var(--primary);color:var(--primary-ink);box-shadow:0 6px 16px rgba(31,122,237,.25)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-secondary{background:#e5e7eb;color:#111827}
+.btn-outline{border:1px solid var(--border);background:transparent}
+.btn-ghost{background:transparent;color:#0b0f19}
+
+/* Hero Slider */
+.hero{position:relative}
+.slider{position:relative;overflow:hidden}
+.slides{position:relative;height:560px}           /* EKLENDİ */
+.slide{                                           /* EKLENDİ */
+  position:absolute;inset:0;
+  opacity:0;transform:scale(1.02);
+  transition:opacity .6s ease, transform .8s ease;
+}
+.slide.is-active{opacity:1;transform:scale(1);z-index:1} /* EKLENDİ */
+.slide img{width:100%;height:100%;object-fit:cover;display:block} /* EKLENDİ */
+
+/* Slider açıklamalarını ortala */
+.caption{                                        /* EKLENDİ */
+  position:absolute;left:0;right:0;bottom:60px;
+  display:flex;flex-direction:column;gap:12px;
+  align-items:center;justify-content:flex-end;
+  padding:0 24px;color:#fff;text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.caption h1,.caption h2{margin:0;max-width:720px}
+.caption p{margin:0;max-width:640px;color:#e5e7eb}
+.actions{display:flex;gap:10px;margin-top:6px}
+
+/* Slider kontrol butonları üstte görünsün */
+.control{ 
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:#0b0f1988;color:#fff;border:1px solid #ffffff55;border-radius:50%;
+  width:52px;height:52px;cursor:pointer;font-size:22px;display:grid;place-items:center;
+  box-shadow:0 6px 16px rgba(2,6,23,.25);
+  z-index:10;
+}
+.control:hover{background:#0b0f19aa}
+.control.prev{left:12px}
+.control.next{right:12px}
+
+/* Noktalar da üstte kalsın */
+.dots{ 
+  position:absolute;bottom:16px;left:0;right:0;display:flex;gap:8px;justify-content:center;
+  z-index:9;
+}
+.dot{width:10px;height:10px;border-radius:50%;background:#ffffff88;border:1px solid #ffffff55;cursor:pointer}
+.dot.is-active{background:#ffffff}
+
+/* Sections */
+.section{padding:56px 0}
+.section.alt{background:#f1f5f9}
+.section-title{text-align:center;margin:0 0 28px 0;font-size:28px}
+
+/* Grids and Cards */
+.grid{display:grid;gap:16px}
+.features{grid-template-columns:repeat(3,1fr)}
+.products{grid-template-columns:repeat(3,1fr)}
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 12px rgba(2,6,23,.06)
+}
+.card img{display:block;width:100%;height:auto}
+.card-body{padding:14px}
+.card h3{margin:10px 14px}
+.card p{margin:0 14px 14px;color:var(--muted)}
+.product .btn{margin:0 14px 14px}
+
+/* Brands */
+.brand-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:center}
+.brand-row img{justify-self:center;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px}
+
+/* Contact */
+.contact-grid{grid-template-columns:2fr 1fr}
+.form{padding:16px}
+.form-row{display:flex;flex-direction:column;margin-bottom:12px}
+.form-row label{font-weight:600;margin-bottom:6px}
+.form-row input,.form-row textarea{
+  padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff;font:inherit
+}
+.contact-info{padding:16px}
+.contact-list{margin:10px 0 0 0;padding:0;list-style:none}
+.contact-list li{margin-bottom:6px;color:var(--muted)}
+
+/* Footer */
+.site-footer{border-top:1px solid var(--border);background:#fff}
+.footer-content{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.footer-content a{text-decoration:none;color:#0b0f19;margin-left:12px}
+.footer-content a:hover{text-decoration:underline}
+
+/* Responsive */
+@media (max-width: 992px){
+  .features,.products{grid-template-columns:repeat(2,1fr)}
+  .slides{height:480px}
+}
+@media (max-width: 720px){
+  .nav-toggle{display:flex}
+  .nav-right{width:100%;justify-content:flex-end}
+  .nav-list{
+    position:absolute;right:0;top:52px;background:#fff;border:1px solid var(--border);
+    flex-direction:column;gap:0;width:220px;border-radius:12px;padding:8px;display:none;
+  }
+  .nav-list.is-open{display:flex}
+  .brand-logo{height:96px}
+  .slides{height:420px}
+  .lang-switch{order:3;margin-left:0}
+}
