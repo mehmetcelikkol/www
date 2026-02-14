@@ -1,0 +1,14 @@
+
+# --- XMLRPC BLOCK (AUTO) ---
+<Files xmlrpc.php>
+  Require all denied
+</Files>
+
+# BEGIN XMLRPC PROTECTION
+<Files xmlrpc.php>
+    Order Deny,Allow
+    Deny from all
+    Allow from 1.2.3.4
+    Allow from 5.6.7.8
+</Files>
+# END XMLRPC PROTECTION

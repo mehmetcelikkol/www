@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="img/favicon.ico" />
+  <link rel="shortcut icon" href="img/favicon.ico" />
   <link rel="stylesheet" href="styles/style.css" />
 </head>
 <body>
@@ -52,7 +54,7 @@
     <div class="slider" id="heroSlider" aria-label="Tanıtım sliderı">
       <div class="slides">
         <div class="slide is-active">
-          <img src="https://placehold.co/1600x600/0f172a/ffffff?text=End%C3%BCstriyel+Sens%C3%B6r+Sat%C4%B1%C5%9F+%7C+Filla" alt="Endüstriyel otomasyon görsel yer tutucu">
+          <img src="img/slider/01.png" alt="Endüstriyel otomasyon görsel">
           <div class="caption">
             <h1 data-i18n="hero.slide1.title">Endüstriyel Sensörlerde Güvenilir Satış ve Tedarik</h1>
             <p data-i18n="hero.slide1.desc">Distribütörü olduğumuz markaların sensörlerini stoktan hızlı teslim ediyoruz.</p>
@@ -63,7 +65,7 @@
           </div>
         </div>
         <div class="slide">
-          <img src="https://placehold.co/1600x600/1f7aed/ffffff?text=Fotoelektrik+%26+End%C3%BCktif" alt="Sensör teknolojileri görsel yer tutucu">
+          <img src="img/slider/02.png" alt="Sensör teknolojileri görsel">
           <div class="caption">
             <h2 data-i18n="hero.slide2.title">Fotoelektrik ve Endüktif Sensör Çözümleri</h2>
             <p data-i18n="hero.slide2.desc">IP67 koruma, geniş algılama mesafeleri ve hızlı tepki süreleri.</p>
@@ -73,7 +75,7 @@
           </div>
         </div>
         <div class="slide">
-          <img src="https://placehold.co/1600x600/101827/97a3b6?text=Teknik+Destek" alt="Teknik destek görsel yer tutucu">
+          <img src="img/slider/03.png" alt="Teknik destek görsel">
           <div class="caption">
             <h2 data-i18n="hero.slide3.title">Teknik Destek ve Entegrasyon</h2>
             <p data-i18n="hero.slide3.desc">Saha desteği, entegrasyon danışmanlığı ve hızlı tedarik.</p>
@@ -93,7 +95,7 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <!-- Nedennn -->
   <section id="why" class="section">
     <div class="container">
       <h2 class="section-title" data-i18n="section.why.title">Neden Filla?</h2>
@@ -117,7 +119,7 @@
     </div>
   </section>
 
-  <!-- Products -->
+  <!-- Ürünler -->
   <section id="products" class="section alt">
     <div class="container">
       <h2 class="section-title" data-i18n="products.title">Öne Çıkan Sensör Ürünleri</h2>
@@ -150,7 +152,7 @@
     </div>
   </section>
 
-  <!-- Brands -->
+  <!-- Markalarımız -->
   <section id="brands" class="section">
     <div class="container">
       <h2 class="section-title" data-i18n="brands.title">Markalarımız</h2>
@@ -163,7 +165,7 @@
     </div>
   </section>
 
-  <!-- Contact -->
+  <!-- İletişim -->
   <section id="contact" class="section alt">
     <div class="container">
       <h2 class="section-title" data-i18n="contact.title">Satış ve İletişim</h2>
@@ -210,6 +212,43 @@
       </nav>
     </div>
   </footer>
+
+  <!-- Side contact toggle & panel -->
+  <button id="contactToggle" class="side-toggle" aria-expanded="false" aria-controls="sidePanel" aria-label="İletişim panelini aç">
+    <span class="icon" aria-hidden="true">
+      <!-- phone icon -->
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 3 5.18 2 2 0 0 1 5 3h3a1 1 0 0 1 1 .75c.12.75.36 1.48.7 2.17a1 1 0 0 1-.24 1.05L8.4 8.9a16 16 0 0 0 7.7 7.7l1.93-1.93a1 1 0 0 1 1.05-.24c.69.34 1.42.58 2.17.7a1 1 0 0 1 .75 1z" fill="currentColor"></path>
+      </svg>
+    </span>
+    <span>İletişim</span>
+  </button>
+  <aside id="sidePanel" class="side-panel" aria-hidden="true" aria-labelledby="contactToggle" role="dialog">
+    <button class="side-close" aria-label="Kapat">&times;</button>
+    <div class="side-inner">
+      <h3>İletişim</h3>
+      <p>Hızlı mesaj bırakın — ekip size dönecektir.</p>
+      <form id="sideContactForm" class="side-form" action="#" method="post" novalidate>
+        <div class="form-row">
+          <label for="side-name">Ad Soyad</label>
+          <input id="side-name" name="side-name" type="text" placeholder="Ad Soyad" required />
+        </div>
+        <div class="form-row">
+          <label for="side-email">E-Posta</label>
+          <input id="side-email" name="side-email" type="email" placeholder="ornek@firma.com" required />
+        </div>
+        <div class="form-row">
+          <label for="side-message">Mesajınız</label>
+          <textarea id="side-message" name="side-message" rows="4" placeholder="Kısaca yazın..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Gönder</button>
+      </form>
+      <div class="side-contact-info">
+        <p>Telefon: +90 (___) ___ __ __</p>
+        <p>E-posta: info@filla.com.tr</p>
+      </div>
+    </div>
+  </aside>
 
   <script src="scripts/main.js"></script>
 </body>

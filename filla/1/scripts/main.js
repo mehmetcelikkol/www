@@ -122,3 +122,69 @@
   applyLang(defaultLang);
   langBtns.forEach(btn => btn.addEventListener('click', () => applyLang(btn.dataset.lang)));
 })();
+
+/* Side panel toggle behavior */
+document.addEventListener('DOMContentLoaded', function(){
+  const contactToggle = document.getElementById('contactToggle');
+  const sidePanel = document.getElementById('sidePanel');
+  const sideClose = sidePanel && sidePanel.querySelector('.side-close');
+
+  // DEBUG: log presence of elements
+  try{ console.debug('[side-panel] init'); }catch(e){}
+  try{ console.debug('[side-panel] contactToggle:', !!contactToggle, contactToggle); }catch(e){}
+  try{ console.debug('[side-panel] sidePanel:', !!sidePanel, sidePanel); }catch(e){}
+
+  function openSide(){
+    if(!sidePanel) return;
+    sidePanel.classList.add('open');
+    if(contactToggle) contactToggle.setAttribute('aria-expanded','true');
+    sidePanel.setAttribute('aria-hidden','false');
+    document.body.classList.add('no-scroll');
+  }
+  function closeSide(){
+    if(!sidePanel) return;
+    sidePanel.classList.remove('open');
+    if(contactToggle) contactToggle.setAttribute('aria-expanded','false');
+    sidePanel.setAttribute('aria-hidden','true');
+    document.body.classList.remove('no-scroll');
+  }
+
+  if(contactToggle && sidePanel){
+    const palette = ['#1f7aed','#0ea5e9','#06b6d4','#8b5cf6','#f59e0b','#10b981','#ef4444','#7c3aed'];
+    function pickColor(){ return palette[Math.floor(Math.random()*palette.length)]; }
+
+    // extra pointerdown log to catch blocked clicks
+    contactToggle.addEventListener('pointerdown', (ev)=>{ try{ console.debug('[side-panel] pointerdown', ev.target); }catch(e){} });
+
+    contactToggle.addEventListener('click', ()=>{
+      const open = sidePanel.classList.toggle('open');
+      try{ console.debug('[side-panel] toggle clicked, open=', open); }catch(e){}
+      contactToggle.setAttribute('aria-expanded', String(open));
+      sidePanel.setAttribute('aria-hidden', String(!open));
+      document.body.classList.toggle('no-scroll', open);
+
+      if(open){
+        // assign a random accent color each time
+        const c = pickColor();
+        try{ console.debug('[side-panel] picked color', c); }catch(e){}
+        contactToggle.style.background = c;
+        // panel gets a gradient using the color and a dark base
+        sidePanel.style.background = `linear-gradient(180deg, ${c}, #081025)`;
+        // ensure form is inside panel (if moved elsewhere)
+        const mainForm = document.getElementById('sideContactForm');
+        if(mainForm && mainForm.parentElement !== sidePanel.querySelector('.side-inner')){
+          sidePanel.querySelector('.side-inner').appendChild(mainForm);
+        }
+        const first = sidePanel.querySelector('input,textarea,button');
+        if(first) first.focus();
+      } else {
+        // on close, remove inline panel background so CSS can control default
+        contactToggle.style.background = '';
+        sidePanel.style.background = '';
+      }
+    });
+    if(sideClose) sideClose.addEventListener('click', closeSide);
+    sidePanel.addEventListener('click', (e)=>{ if(e.target === sidePanel) closeSide(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && sidePanel.classList.contains('open')) closeSide(); });
+  }
+});
