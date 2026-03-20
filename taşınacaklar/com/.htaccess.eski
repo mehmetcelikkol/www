@@ -1,0 +1,9 @@
+# Tüm erişimlere izin ver
+Order allow,deny
+Allow from all
+
+# Güvenlik için hassas dosyaları gizle
+<Files "*.log">
+    Order deny,allow
+    Deny from all
+</Files>

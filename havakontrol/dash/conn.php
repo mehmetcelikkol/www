@@ -1,11 +1,11 @@
 <?php
 // Çalışma ortamını kontrol et
-if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['HTTP_HOST'] == 'localhost') {
+if ($_SERVER['SERVER_NAME'] == 'localhost:8080' || $_SERVER['HTTP_HOST'] == 'localhost:8080') {
     // WAMP üzerinde çalışıyorsanız 'root' kullanıcısını kullan
     $servername = "localhost";
     $username = "root";
     $password = "";
-    $dbname = "havakont_espdht";
+    $dbname = "espdht";
 } else {
     // Diğer ortamlarda 'hava_espdht' kullanıcısını kullan
     $servername = "localhost";  // veya sunucu adresi

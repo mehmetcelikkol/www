@@ -25,6 +25,7 @@ if (!$data) {
 $cihaz_kimligi         = $data['cihaz_kimligi'] ?? null;
 $paket_no              = $data['paket_no'] ?? null;
 $agirlik_degeri        = $data['agirlik_degeri'] ?? 0.0;
+$darbeSayisi           = $data['darbeSayisi'] ?? 0;
 $stabil_mi             = $data['stabil_mi'] ?? 1;  // ASLINDA VERSİYON (170)
 $calisma_suresi_saniye = $data['calisma_suresi_saniye'] ?? 0;
 $rs485_hata_sayisi     = $data['rs485_hata_sayisi'] ?? 0;
@@ -53,20 +54,23 @@ $gercek_stabil_mi = 1;  // stabil_mi'yi her zaman 1 (true) yap
 // ANA KAYIT (geçici çözüm)
 $stmt = $db->prepare("
     INSERT INTO cihaz_paketleri
-    (cihaz_kimligi, paket_no, agirlik_degeri, stabil_mi,
+    (cihaz_kimligi, paket_no, agirlik_degeri, darbeSayisi, stabil_mi,
      cihaz_versiyonu, calisma_suresi_saniye, rs485_hata_sayisi,
      yazilim_surumu, ip_adresi)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-");
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"); // 10 adet soru işareti var
 
-// "sidiiisss" - stabil_mi ve cihaz_versiyonu için iki int
+// "sidiiii sss" -> Toplam 10 tip belirleyici:
+// s:cihaz_kimligi, i:paket_no, d:agirlik_degeri, i:darbeSayisi, i:gercek_stabil_mi, 
+// i:cihaz_versiyonu, i:calisma_suresi_saniye, s:rs485_hata_sayisi, s:yazilim_surumu, s:ip_adresi
 $stmt->bind_param(
-    "sidiiisss",
+    "sidiiiisss", // Buraya bir 'i' daha eklendi (darbeSayisi için)
     $cihaz_kimligi,
     $paket_no,
     $agirlik_degeri,
-    $gercek_stabil_mi,      // Her zaman 1
-    $cihaz_versiyonu,       // Versiyon (170) buraya
+    $darbeSayisi,         // Bu değişken eklenmemişti!
+    $gercek_stabil_mi,
+    $cihaz_versiyonu,
     $calisma_suresi_saniye,
     $rs485_hata_sayisi,
     $yazilim_surumu,
@@ -94,7 +98,7 @@ $stmt2 = $db->prepare("
 ");
 
 $stmt2->bind_param(
-    "sidi iiss",
+    "sidiiiss",
     $cihaz_kimligi,
     $paket_no,
     $agirlik_degeri,

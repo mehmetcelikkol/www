@@ -1,0 +1,13 @@
+[2026-03-05 07:36:45] [INFO] [KID:Guest | KADI:Misafir | ROL:Yok] Demo veri oluşturma scripti başlatıldı. {"veritabani":"silosense3_demo"}
+[2026-03-05 07:36:45] [ERROR] [KID:Guest | KADI:Misafir | ROL:Yok] Demo veri oluşturma sırasında veritabanı hatası. {"hata":"SQLSTATE[42S02]: Base table or view not found: 1146 Table 'silosense3_demo.bayi_entegre_iliski' doesn't exist","veritabani":"silosense3_demo"}
+[2026-03-06 07:11:47] [ERROR] [KID:Guest | KADI:Misafir | ROL:Yok] Demo veri oluşturma sırasında veritabanı hatası. {"hata":"SQLSTATE[HY000] [1049] Unknown database 'silosense3_demo'","veritabani":"silosense3_demo"}
+[2026-03-06 07:11:53] [INFO] [KID:Guest | KADI:Misafir | ROL:Yok] Demo veri oluşturma scripti başlatıldı. {"veritabani":"demo_silosense"}
+[2026-03-06 07:11:53] [ERROR] [KID:Guest | KADI:Misafir | ROL:Yok] Demo veri oluşturma sırasında veritabanı hatası. {"hata":"SQLSTATE[42S02]: Base table or view not found: 1146 Table 'demo_silosense.entegreler' doesn't exist","veritabani":"demo_silosense"}
+[2026-03-10 10:19:30] [USER_ACTION] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Mehmet (Süper Admin) backdoor ile giriş yaptı. {"eposta":"mehmet"}
+[2026-03-10 10:19:30] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-10 10:51:21] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-10 10:53:41] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-10 10:56:44] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-10 11:46:55] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-10 19:17:53] [INFO] [KID:9999 | KADI:Mehmet (Süper Admin) | ROL:admin] Kullanıcı anasayfayı görüntüledi. {"sayfa":"index.php","rol":"admin"}
+[2026-03-18 00:49:45] [WARN] [KID:Guest | KADI:Misafir | ROL:Yok] Hatalı giriş denemesi. {"eposta":"mehmet@rmtproje.com","parola_girisi_uzunlugu":9}

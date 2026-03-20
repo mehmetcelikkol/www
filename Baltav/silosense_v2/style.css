@@ -1,0 +1,113 @@
+/* SiloSense V2 - Modern UI */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: #f0f2f5;
+    color: #2d3436;
+}
+
+/* Glassmorphism Login */
+.login-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: cover;
+}
+
+.glass-effect {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.login-card {
+    width: 400px;
+    padding: 40px;
+}
+
+.glass-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+}
+.glass-input:focus {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    box-shadow: none;
+    border-color: #ffc107;
+}
+.glass-input::placeholder { color: rgba(255,255,255,0.5); }
+
+/* Dashboard Sidebar */
+.sidebar {
+    height: 100vh;
+    background: #ffffff;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    position: fixed;
+    width: 260px;
+    z-index: 999;
+}
+
+.main-content {
+    margin-left: 260px;
+    padding: 30px;
+}
+
+.nav-link {
+    color: #636e72;
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 5px;
+    transition: 0.3s;
+}
+.nav-link:hover, .nav-link.active {
+    background: #ffeaa7;
+    color: #d63031;
+    font-weight: 500;
+}
+
+/* SIVI SİLO ANİMASYONU (Liquid Silo) */
+.silo-container {
+    width: 100px;
+    height: 160px;
+    background: #dfe6e9;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #b2bec3;
+    margin: 0 auto;
+}
+
+.silo-liquid {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 60%; /* Dinamik değişecek */
+    background: linear-gradient(to top, #0984e3, #74b9ff);
+    transition: height 1s ease-in-out;
+}
+
+/* Dalga Efekti */
+.silo-liquid::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: 0;
+    width: 200%;
+    height: 20px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    animation: wave 3s infinite linear;
+}
+
+@keyframes wave {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* Renkler */
+.level-high { background: linear-gradient(to top, #00b894, #55efc4); } /* Yeşil */
+.level-med { background: linear-gradient(to top, #fdcb6e, #ffeaa7); } /* Sarı */
+.level-low { background: linear-gradient(to top, #d63031, #ff7675); } /* Kırmızı */

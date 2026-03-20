@@ -1,0 +1,200 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Fredoka', sans-serif;
+}
+
+body {
+    background: #fdfbfb;
+    background-image: radial-gradient(var(--c-bg-dots) 1.5px, transparent 1.5px);
+    background-size: 25px 25px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-container {
+    background: #ffffff;
+    padding: 40px;
+    padding-top: 50px;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 380px;
+    position: relative;
+    border: 3px solid var(--c-body);
+    margin-top: 100px;
+}
+
+/* Karakter Konteyneri */
+.character-container {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 160px;
+    height: 160px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+svg#cute-monster {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+/* Göz Bebekleri */
+.pupil-group {
+    transition: transform 0.08s ease-out;
+}
+
+/* Ağız Durumları */
+.mouth {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.mouth.idle {
+    opacity: 1;
+}
+
+.mouth.mock-tongue {
+    display: none;
+}
+
+/* Patiler */
+.hand {
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Şifre Girişi Durumu */
+body.password-focus .mouth.idle { opacity: 0; }
+body.password-focus .mouth.whistle { opacity: 1; }
+
+body.password-focus .left-hand {
+    transform-origin: 60px 200px;
+    transform: translateY(-55px) translateX(15px) rotate(25deg);
+}
+body.password-focus .right-hand {
+    transform-origin: 140px 200px;
+    transform: translateY(-55px) translateX(-15px) rotate(-25deg);
+}
+
+body.password-focus .body, body.password-focus .face {
+    animation: sway 2s infinite alternate ease-in-out;
+    transform-origin: center bottom;
+}
+
+@keyframes sway {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(2deg); }
+}
+
+/* Hata / Dalga Geçme Durumu */
+body.error-state .mouth.idle { opacity: 0; }
+body.error-state .mouth.mock { opacity: 1; }
+body.error-state .mouth.mock-tongue { opacity: 1; display: block; }
+
+body.error-state .body, body.error-state .face {
+    animation: giggle 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes giggle {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(3px) scaleY(0.98); }
+}
+
+body.error-state .ear {
+    animation: flap 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes flap {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(4deg) translateY(-2px); }
+}
+
+/* Form Konteyneri */
+.login-form h2 {
+    text-align: center;
+    color: var(--c-accent-dark);
+    margin-bottom: 25px;
+    font-weight: 600;
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px 15px;
+    border: 2px solid var(--c-body);
+    border-radius: 12px;
+    font-size: 1rem;
+    color: #475569;
+    background: #fafafa;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    outline: none;
+}
+
+.input-group input:focus {
+    border-color: var(--c-accent-dark);
+    background: #ffffff;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent-dark) 20%, transparent);
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--c-grad-start) 0%, var(--c-grad-end) 100%);
+    color: #4a4a4a;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--c-grad-start) 40%, transparent);
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--c-grad-start) 60%, transparent);
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+.error-msg {
+    background: color-mix(in srgb, var(--c-accent-dark) 10%, white);
+    color: var(--c-accent-dark);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    text-align: center;
+    border: 1px dashed var(--c-accent-dark);
+    animation: popIn 0.3s ease-out;
+}
+
+.success-msg {
+    background: #f0fdf4;
+    color: #22c55e;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    text-align: center;
+    border: 1px dashed #4ade80;
+    animation: popIn 0.3s ease-out;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}

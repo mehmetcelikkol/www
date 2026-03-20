@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteRule ^firmware\.ino\.esp32\.bin$ yukle.php [L]
+RewriteRule ^(.+)\.bin$ yukle.php [L]
