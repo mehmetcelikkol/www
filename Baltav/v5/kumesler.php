@@ -39,13 +39,20 @@ $entegreler = $db->query("SELECT id, unvan FROM entegreler ORDER BY unvan ASC")-
 $isletmeciler = $db->query("SELECT id, unvan FROM isletmeciler ORDER BY unvan ASC")->fetchAll();
 ?>
 <div class="main-content">
-    <div class="topbar"><h5 class="m-0 page-title">Fiziksel Kümes Binaları Yönetimi</h5></div>
+    <div class="topbar d-flex justify-content-between align-items-center">
+        <h5 class="m-0 page-title">Fiziksel Kümes Binaları Yönetimi</h5>
+        <div class="btn-group">
+            <button onclick="tabloKopyala('kumesTablosu')" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-copy"></i> Kopyala</button>
+            <button onclick="tabloExcelIndir('kumesTablosu', 'Kumes_Listesi')" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-excel"></i> Excel</button>
+            <button onclick="tabloPdfIndir('kumesTablosu', 'Kumes_Listesi')" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        </div>
+    </div>
     <?php if(isset($basari)): ?><div class="alert alert-success bg-success text-white border-0"><?= $basari ?></div><?php endif; ?>
     <?php if(isset($hata)): ?><div class="alert alert-danger bg-danger text-white border-0"><?= $hata ?></div><?php endif; ?>
     <div class="row">
         <div class="col-lg-8">
             <div class="silo-card glass p-4">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle" id="kumesTablosu">
                     <thead class="table-light">
                         <tr><th>ID</th><th>Kümes Adı</th><th>Bağlı İşletmeci</th><th>Entegre Durumu</th><th>İşlemler</th></tr>
                     </thead>

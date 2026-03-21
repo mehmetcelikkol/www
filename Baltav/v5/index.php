@@ -25,6 +25,7 @@ $kumes_sayisi_sorgu = $db->query($kumes_say_q)->fetch();
 // Cihaz Anlık Değerleri ve Tavuk Yemi Hesabı
 $sql_cihazlar = "SELECT c.cihaz_kodu, c.cihaz_adi, c.kumes_id, k.entegre_id,
     (SELECT agirlik_degeri FROM cihaz_paketleri cp WHERE cp.cihaz_kodu = c.cihaz_kodu ORDER BY alinan_zaman DESC LIMIT 1) as mevcut_agirlik,
+    (SELECT alinan_zaman FROM cihaz_paketleri cp WHERE cp.cihaz_kodu = c.cihaz_kodu ORDER BY alinan_zaman DESC LIMIT 1) as son_gorulme,
     c.kapasite_kg,
     k.unvan as kumes_adi,
     e.unvan as entegre_adi
@@ -116,6 +117,7 @@ foreach($cihazlar as $c) {
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="m-0 fw-bold"><i class="fa-solid fa-boxes-stacked text-primary"></i> Detaylı Yem Envanteri (Anlık)</h5>
                             <div class="btn-group">
+                                <button onclick="tabloKopyala('envanterTablosu')" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-copy"></i> Kopyala</button>
                                 <button onclick="tabloPdfIndir('envanterTablosu', 'Anlik_Envanter_Raporu')" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i> PDF Aktar</button>
                                 <button onclick="tabloExcelIndir('envanterTablosu', 'Anlik_Envanter_Raporu')" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-excel"></i> Excel Aktar</button>
                             </div>
@@ -141,9 +143,18 @@ foreach($cihazlar as $c) {
                                         $renk = 'success';
                                         if($yuzde < 20) $renk = 'danger';
                                         else if($yuzde < 50) $renk = 'warning';
+
+                                        $online = false;
+                                        if ($c['son_gorulme']) {
+                                            $fark = time() - strtotime($c['son_gorulme']);
+                                            if ($fark < 1800) $online = true;
+                                        }
                                     ?>
                                     <tr>
-                                        <td><strong><?= htmlspecialchars($c['cihaz_kodu']) ?></strong></td>
+                                        <td>
+                                            <span class="status-indicator <?= $online ? 'status-online' : 'status-offline' ?>" title="<?= $online ? 'Bağlı (Son veri: ' . date('H:i', strtotime($c['son_gorulme'])) . ')' : 'Devre Dışı (Son veri: ' . ($c['son_gorulme'] ? date('d.m H:i', strtotime($c['son_gorulme'])) : 'Yok') . ')' ?>"></span>
+                                            <strong><?= htmlspecialchars($c['cihaz_kodu']) ?></strong>
+                                        </td>
                                         <td><?= htmlspecialchars($c['cihaz_adi'] ?? 'İsimsiz Cihaz') ?></td>
                                         <td>
                                             <?php if($c['kumes_adi']): 

@@ -41,25 +41,43 @@ if ($_SESSION['kullanici_rolu'] == 'entegre') {
     $kumes_sorgu_ek = " WHERE c.kumes_id IN (SELECT id FROM kumesler WHERE isletmeci_id = " . (int)$_SESSION['isletmeci_id'] . ") ";
 }
 
-$cihazlar = $db->query("SELECT c.*, k.unvan as kumes_adi, i.unvan as isletmeci_adi FROM cihazlar c LEFT JOIN kumesler k ON c.kumes_id = k.id LEFT JOIN isletmeciler i ON k.isletmeci_id = i.id $kumes_sorgu_ek ORDER BY c.id DESC")->fetchAll();
+$cihazlar = $db->query("SELECT c.*, k.unvan as kumes_adi, i.unvan as isletmeci_adi,
+    (SELECT alinan_zaman FROM cihaz_paketleri cp WHERE cp.cihaz_kodu = c.cihaz_kodu ORDER BY alinan_zaman DESC LIMIT 1) as son_gorulme
+    FROM cihazlar c LEFT JOIN kumesler k ON c.kumes_id = k.id LEFT JOIN isletmeciler i ON k.isletmeci_id = i.id $kumes_sorgu_ek ORDER BY c.id DESC")->fetchAll();
 $kumesler = $db->query("SELECT k.id, k.unvan, i.unvan as isletmeci_adi FROM kumesler k LEFT JOIN isletmeciler i ON k.isletmeci_id = i.id ORDER BY k.unvan ASC")->fetchAll();
 ?>
 
 <div class="main-content">
-    <div class="topbar"><h5 class="m-0 page-title">Silo Envanteri (Cihazlar)</h5></div>
+    <div class="topbar d-flex justify-content-between align-items-center">
+        <h5 class="m-0 page-title">Silo Envanteri (Cihazlar)</h5>
+        <div class="btn-group">
+            <button onclick="tabloKopyala('cihazTablosu')" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-copy"></i> Kopyala</button>
+            <button onclick="tabloExcelIndir('cihazTablosu', 'Silo_Envanteri')" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-file-excel"></i> Excel</button>
+            <button onclick="tabloPdfIndir('cihazTablosu', 'Silo_Envanteri')" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        </div>
+    </div>
     <?php if(isset($basari)): ?><div class="alert alert-success bg-success text-white border-0"><?= $basari ?></div><?php endif; ?>
     <?php if(isset($hata)): ?><div class="alert alert-danger bg-danger text-white border-0"><?= $hata ?></div><?php endif; ?>
 
     <div class="row">
         <div class="col-lg-8">
             <div class="silo-card glass p-4">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle" id="cihazTablosu">
                     <thead class="table-light">
-                        <tr><th>Cihaz Kodu</th><th>Adı</th><th>Kapasite</th><th>Bulunduğu Kümes</th><th>İşlemler</th></tr>
+                        <tr><th>Durum</th><th>Cihaz Kodu</th><th>Adı</th><th>Kapasite</th><th>Bulunduğu Kümes</th><th>İşlemler</th></tr>
                     </thead>
                     <tbody>
-                        <?php foreach($cihazlar as $c): ?>
+                        <?php foreach($cihazlar as $c): 
+                            $online = false;
+                            if ($c['son_gorulme']) {
+                                $fark = time() - strtotime($c['son_gorulme']);
+                                if ($fark < 1800) $online = true;
+                            }
+                        ?>
                         <tr>
+                            <td>
+                                <span class="status-indicator <?= $online ? 'status-online' : 'status-offline' ?>" title="<?= $online ? 'Bağlı (Son veri: ' . date('H:i', strtotime($c['son_gorulme'])) . ')' : 'Devre Dışı (Son veri: ' . ($c['son_gorulme'] ? date('d.m H:i', strtotime($c['son_gorulme'])) : 'Yok') . ')' ?>"></span>
+                            </td>
                             <td><strong><?= htmlspecialchars($c['cihaz_kodu']) ?></strong></td>
                             <td><i class="fa-solid fa-wheat-awn text-warning"></i> <?= htmlspecialchars($c['cihaz_adi'] ?? 'İsimsiz Cihaz') ?></td>
                             <td><?= number_format((float)($c['kapasite_kg'] ?? 0), 0, ',', '.') ?> kg</td>

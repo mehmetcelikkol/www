@@ -23,6 +23,25 @@
         };
         html2pdf().set(opt).from(element).save();
     }
+
+    function tabloKopyala(tableID) {
+        var table = document.getElementById(tableID);
+        if (!table) return;
+        
+        var range = document.createRange();
+        range.selectNode(table);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        
+        try {
+            document.execCommand('copy');
+            alert('Tablo panoya kopyalandı! Excel veya Word\'e yapıştırabilirsiniz.');
+        } catch (err) {
+            alert('Kopyalama başarısız oldu.');
+        }
+        
+        window.getSelection().removeAllRanges();
+    }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>

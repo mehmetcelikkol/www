@@ -43,8 +43,9 @@ $loglar = $sorgu->fetchAll();
     <div class="topbar d-flex justify-content-between align-items-center">
         <h5 class="m-0 page-title">Sistem İşlem Logları</h5>
         <div class="btn-group">
-            <button onclick="tabloPdfIndir('logTablosu', 'Sistem_Loglari')" class="btn btn-primary"><i class="fa-solid fa-file-pdf"></i> Çıktı Al (PDF)</button>
-            <button onclick="tabloExcelIndir('logTablosu', 'Sistem_Loglari')" class="btn btn-success"><i class="fa-solid fa-file-excel"></i> Çıktı Al (Excel)</button>
+            <button onclick="tabloKopyala('logTablosu')" class="btn btn-outline-primary"><i class="fa-solid fa-copy"></i> Panoya Kopyala</button>
+            <button onclick="tabloPdfIndir('logTablosu', 'Sistem_Loglari')" class="btn btn-primary"><i class="fa-solid fa-file-pdf"></i> PDF Aktar</button>
+            <button onclick="tabloExcelIndir('logTablosu', 'Sistem_Loglari')" class="btn btn-success"><i class="fa-solid fa-file-excel"></i> Excel Aktar</button>
         </div>
     </div>
     
