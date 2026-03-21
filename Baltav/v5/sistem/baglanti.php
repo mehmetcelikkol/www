@@ -8,10 +8,10 @@ session_start(); // Oturum başlat
 
 $veritabani_sunucu = 'localhost';
 $veritabani_adi = 'rmtproje_silosense_v5';
-$veritabani_kullanici = 'rmtproje_silosense_v5';
-//$veritabani_kullanici = 'root';
-$veritabani_sifre = '0120+0120aA';
-//$veritabani_sifre = '';
+//$veritabani_kullanici = 'rmtproje_silosense_v5';
+$veritabani_kullanici = 'root';
+//$veritabani_sifre = '0120+0120aA';
+$veritabani_sifre = '';
 
 try {
     $db = new PDO("mysql:host=$veritabani_sunucu;dbname=$veritabani_adi;charset=utf8mb4", $veritabani_kullanici, $veritabani_sifre);

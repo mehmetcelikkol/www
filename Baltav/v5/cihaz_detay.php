@@ -29,32 +29,68 @@ if (!$cihaz) {
     exit;
 }
 
+// Anlık mevcut ağırlığı getirelim (grafik filtrelerinden etkilenmez)
+$anlik_sorgu = $db->prepare("SELECT agirlik_degeri FROM cihaz_paketleri WHERE cihaz_kodu = ? ORDER BY alinan_zaman DESC LIMIT 1");
+$anlik_sorgu->execute([$kodu]);
+$son_kayit = $anlik_sorgu->fetch();
+$mevcut_agirlik = $son_kayit && $son_kayit['agirlik_degeri'] !== null ? (float)$son_kayit['agirlik_degeri'] : 0;
+$yuzde = ($cihaz['kapasite_kg'] > 0) ? round(($mevcut_agirlik / $cihaz['kapasite_kg']) * 100) : 0;
+
 // Geçmiş Verileri Çekelim (Tarih Filtresi varsa uygula)
 $tarih_sorgu = "";
 $parametreler = [$kodu];
-$limit = "LIMIT 120";
+$limit = "LIMIT 120"; // Varsayılan anlık detay sayısı
+$is_grouped = false;
 
 if (!empty($_GET['baslangic']) && !empty($_GET['bitis'])) {
     $tarih_sorgu = " AND DATE(alinan_zaman) >= ? AND DATE(alinan_zaman) <= ? ";
     $parametreler[] = $_GET['baslangic'];
     $parametreler[] = $_GET['bitis'];
-    $limit = "LIMIT 500";
+    
+    // Gün farkını hesapla
+    $diff = strtotime($_GET['bitis']) - strtotime($_GET['baslangic']);
+    $days = round($diff / 86400);
+    
+    // Eğer 10 günden çok veri taranıyorsa günlük ortalama göster
+    if ($days > 10) {
+        $is_grouped = true;
+        $gecmis_sorgu = $db->prepare("
+            SELECT AVG(agirlik_degeri) as agirlik_degeri, DATE(alinan_zaman) as alinan_zaman 
+            FROM cihaz_paketleri 
+            WHERE cihaz_kodu = ? $tarih_sorgu 
+            GROUP BY DATE(alinan_zaman) 
+            ORDER BY DATE(alinan_zaman) DESC
+            LIMIT 365
+        ");
+    } else {
+        $limit = "LIMIT 600"; // Daha kısa periyotta daha bol detay verebiliriz
+        $gecmis_sorgu = $db->prepare("SELECT agirlik_degeri, alinan_zaman FROM cihaz_paketleri WHERE cihaz_kodu = ? $tarih_sorgu ORDER BY alinan_zaman DESC $limit");
+    }
+} else {
+    // Tarih seçili değilse en son veriler
+    $gecmis_sorgu = $db->prepare("SELECT agirlik_degeri, alinan_zaman FROM cihaz_paketleri WHERE cihaz_kodu = ? ORDER BY alinan_zaman DESC $limit");
 }
 
-$gecmis_sorgu = $db->prepare("SELECT agirlik_degeri, alinan_zaman FROM cihaz_paketleri WHERE cihaz_kodu = ? $tarih_sorgu ORDER BY alinan_zaman ASC $limit");
 $gecmis_sorgu->execute($parametreler);
 $gecmis = $gecmis_sorgu->fetchAll();
+// Grafikte soldan sağa kronolojik akması için diziyi tersine çeviriyoruz (eskiden yeniye)
+$gecmis = array_reverse($gecmis);
 
 $zamanlar = [];
 $agirliklar = [];
-$mevcut_agirlik = 0;
 foreach($gecmis as $g) {
-    $zamanlar[] = date('d.m H:i', strtotime($g['alinan_zaman']));
-    $agirliklar[] = round($g['agirlik_degeri']);
-    $mevcut_agirlik = $g['agirlik_degeri'];
+    if ($is_grouped) {
+        $zamanlar[] = date('d.m.Y', strtotime($g['alinan_zaman']));
+    } else {
+        $zamanlar[] = date('d.m H:i', strtotime($g['alinan_zaman']));
+    }
+    
+    if ($g['agirlik_degeri'] === null || $g['agirlik_degeri'] === '') {
+        $agirliklar[] = null;
+    } else {
+        $agirliklar[] = round($g['agirlik_degeri']);
+    }
 }
-
-$yuzde = ($cihaz['kapasite_kg'] > 0) ? round(($mevcut_agirlik / $cihaz['kapasite_kg']) * 100) : 0;
 ?>
 
 <div class="main-content">

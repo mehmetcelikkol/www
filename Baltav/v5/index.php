@@ -196,32 +196,63 @@ foreach($cihazlar as $c) {
 <script>
 // ApexCharts Render İşlemleri
 document.addEventListener("DOMContentLoaded", function() {
-    
-    // Donut Grafiği (Dinamil PHP Verisi)
+    // Bar Grafiği (Dinamik PHP Verisi)
     var siloIsimleri = [<?php foreach($cihazlar as $c) echo "'" . htmlspecialchars($c['cihaz_adi']) . "',"; ?>];
-    var siloDoluluklar = [<?php foreach($cihazlar as $c) { $y = ($c['kapasite_kg'] > 0) ? round(($c['mevcut_agirlik'] / $c['kapasite_kg']) * 100) : 0; echo $y . ","; } ?>];
+    var siloDoluluklar = [<?php foreach($cihazlar as $c) { 
+        if($c['mevcut_agirlik'] === null) {
+            echo "null,";
+        } else {
+            $y = ($c['kapasite_kg'] > 0) ? round(($c['mevcut_agirlik'] / $c['kapasite_kg']) * 100) : 0; 
+            echo $y . ","; 
+        }
+    } ?>];
 
     if (siloDoluluklar.length > 0) {
         var optionsDoluluk = {
-            series: siloDoluluklar,
-            labels: siloIsimleri,
+            series: [{
+                name: 'Doluluk Oranı (%)',
+                data: siloDoluluklar
+            }],
             chart: {
-                type: 'donut',
+                type: 'bar',
                 height: 350
             },
-            colors: ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0'],
             plotOptions: {
-                pie: {
-                    donut: {
-                        size: '65%'
-                    }
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    dataLabels: {
+                        position: 'top', // etiketleri çubuğun sonuna koy
+                    },
                 }
             },
             dataLabels: {
-                enabled: false
+                enabled: true,
+                formatter: function (val) {
+                    return val + "%";
+                },
+                offsetX: 20,
+                style: {
+                    fontSize: '12px',
+                    colors: ['#304758']
+                }
             },
-            legend: {
-                position: 'bottom'
+            stroke: {
+                show: true,
+                width: 1,
+                colors: ['#fff']
+            },
+            xaxis: {
+                categories: siloIsimleri,
+                max: 100
+            },
+            colors: ['#008FFB'],
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return val + "%";
+                    }
+                }
             }
         };
         var chartDoluluk = new ApexCharts(document.querySelector("#dolulukGrafik"), optionsDoluluk);
