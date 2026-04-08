@@ -1,21 +1,18 @@
 <?php
-
 include "header.php";
 include "conn.php";
 include "oturum.php";
 include "sidebar.php";
 include "navbar.php";
 
-// GET parametresi ile gelen seri numarasını al
-$serino = isset($_GET['serino']) ? $_GET['serino'] : '';
+// GET parametresi ile gelen seri numarasını al (Güvenlikli)
+$serino = isset($_GET['serino']) ? $conn->real_escape_string($_GET['serino']) : '';
 
 // GET parametresi ile gelen zaman aralığını al
 $filter = isset($_GET['filter']) ? $_GET['filter'] : '';
 
 // Filtreleme tarihlerini belirleme
-$now = date('Y-m-d H:i:s');
 $startDate = '';
-
 switch ($filter) {
     case 'bugun':
         $startDate = date('Y-m-d 00:00:00');
@@ -41,64 +38,56 @@ switch ($filter) {
     case 'son365':
         $startDate = date('Y-m-d H:i:s', strtotime('-365 days'));
         break;
-    case 'son10':
-    case 'son50':
-        $startDate = ''; // En son 10 veya 50 kayıt için özel sorgu yapacağız
-        break;
-    default:
-        $startDate = ''; // Filtre uygulanmaz
-        break;
 }
 
-// Tablo ve grafik verileri için ayrı SQL sorguları
-$sqlTable = "SELECT * FROM veriler";
-$sqlGraph = "SELECT kayit_tarihi, temp, hum FROM veriler";
-
-// Seri numarasına göre filtre uygula
+// SQL Sorgu Mantığı (implode ile sadeleştirilmiş ve hatasız)
+$conditions = [];
 if (!empty($serino)) {
-    $sqlTable .= " WHERE serino = '" . $conn->real_escape_string($serino) . "'";
-    $sqlGraph .= " WHERE serino = '" . $conn->real_escape_string($serino) . "'";
+    $conditions[] = "serino = '$serino'";
 }
-
-// Tarih filtresi uygula
 if (!empty($startDate)) {
-    $sqlTable .= !empty($serino) ? " AND" : " WHERE";
-    $sqlTable .= " kayit_tarihi >= '$startDate'";
-
-    $sqlGraph .= !empty($serino) ? " AND" : " WHERE";
-    $sqlGraph .= " kayit_tarihi >= '$startDate'";
+    $conditions[] = "kayit_tarihi >= '$startDate'";
 }
 
-// Son 10 veya 50 kayıt filtreleri için sıralama ve limit
+$whereSQL = "";
+if (count($conditions) > 0) {
+    $whereSQL = " WHERE " . implode(" AND ", $conditions);
+}
+
+// Son 10 veya 50 kayıt için LIMIT ve Sıralama Ayarları
+$orderTable = " ORDER BY kayit_tarihi DESC";
+$orderGraph = " ORDER BY kayit_tarihi ASC";
+$limit = "";
+
 if ($filter === 'son10') {
-    $sqlTable .= " ORDER BY kayit_tarihi DESC LIMIT 10";
-    $sqlGraph .= " ORDER BY id ASC LIMIT 10";
+    $limit = " LIMIT 10";
 } elseif ($filter === 'son50') {
-    $sqlTable .= " ORDER BY kayit_tarihi DESC LIMIT 50";
-    $sqlGraph .= " ORDER BY id ASC LIMIT 50";
-} else {
-    $sqlTable .= " ORDER BY kayit_tarihi DESC";
-    $sqlGraph .= " ORDER BY id ASC LIMIT 350";  // Bellek sınırı için limit
+    $limit = " LIMIT 50";
 }
+
+// Final Sorgular
+$sqlTable = "SELECT * FROM veriler" . $whereSQL . $orderTable . $limit;
+$sqlGraph = "SELECT * FROM veriler" . $whereSQL . $orderGraph . $limit;
 
 $resultTable = $conn->query($sqlTable);
 $resultGraph = $conn->query($sqlGraph);
 
-// Grafik verilerini hazırla
+// Grafik verilerini hazırlama
 $data = [];
-while ($row = $resultGraph->fetch_assoc()) {
-    $data[] = $row;
+if ($resultGraph) {
+    while ($row = $resultGraph->fetch_assoc()) {
+        $data[] = $row;
+    }
 }
-
-$conn->close();
 ?>
 
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Veri Görüntüleme</title>
-    <meta http-equiv="refresh" content="60">
+    <meta http-equiv="refresh" content="60"> 
     <style>
         table {
             width: 100%;
@@ -125,7 +114,7 @@ $conn->close();
             overflow: hidden;
         }
         .scroll-container {
-            height: calc(100vh - 60px);
+            height: calc(100vh - 60px); /* Footer yüksekliğini çıkarın */
             overflow-y: auto;
             padding: 20px;
         }
@@ -133,124 +122,135 @@ $conn->close();
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<div class="scroll-container">
-    <div align="center">
-        <p>
-            <button class="btn btn-primary btn-round" onclick="filterData('bugun')">Bugün</button>
-            <button class="btn btn-primary btn-round" onclick="filterData('hafta')">Bu Hafta</button>
-            <button class="btn btn-primary btn-round" onclick="filterData('ay')">Bu Ay</button>
-            <button class="btn btn-primary btn-round" onclick="filterData('yil')">Bu Yıl</button>
-            <button class="btn btn-primary btn-border btn-round" onclick="filterData('son24')">Son 24 Saat</button>
-            <button class="btn btn-primary btn-border btn-round" onclick="filterData('son7')">Son 7 Gün</button>
-            <button class="btn btn-primary btn-border btn-round" onclick="filterData('son30')">Son 30 Gün</button>
-            <button class="btn btn-primary btn-border btn-round" onclick="filterData('son365')">Son 365 Gün</button>
-            <button class="btn btn-success btn-round" onclick="filterData('son10')">Son 10 Kayıt</button>
-            <button class="btn btn-success btn-round" onclick="filterData('son50')">Son 50 Kayıt</button>
-        </p>
-    </div>
+    <div class="scroll-container">
+        <div class="card-body" align="center">
+            <p class="demo">
+                <button class="btn btn-primary btn-round" onclick="filterData('bugun')">Bugün</button>
+                <button class="btn btn-primary btn-round" onclick="filterData('hafta')">Bu Hafta</button>
+                <button class="btn btn-primary btn-round" onclick="filterData('ay')">Bu Ay</button>
+                <button class="btn btn-primary btn-round" onclick="filterData('yil')">Bu Yıl</button>
+                <button class="btn btn-primary btn-border btn-round" onclick="filterData('son24')">Son 24 Saat</button>
+                <button class="btn btn-primary btn-border btn-round" onclick="filterData('son7')">Son 7 Gün</button>
+                <button class="btn btn-primary btn-border btn-round" onclick="filterData('son30')">Son 30 Gün</button>
+                <button class="btn btn-primary btn-border btn-round" onclick="filterData('son365')">Son 365 Gün</button>
+                <button class="btn btn-success btn-round" onclick="filterData('son10')">Son 10 Kayıt</button>
+                <button class="btn btn-success btn-round" onclick="filterData('son50')">Son 50 Kayıt</button>
+            </p>
+        </div>
 
-    <div class="chart-container">
-        <canvas id="lineChart"></canvas>
-    </div>
-    <br>
+        <div class="card-body" align="center">
+            <div class="card-header"></div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <br>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Serino</th>
-            <th>ISI</th>
-            <th>Nem</th>
-            <th>WiFi</th>
-            <th>Ver</th>
-            <th>Oturum</th>
-            <th>Kod1</th>
-            <th>Kayıt Tarihi</th>
-        </tr>
+        <div class="card-body">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Serino</th>
+                    <th>Sıcaklık (°C)</th>
+                    <th>Nem (%)</th>
+                    <th>WiFi</th>
+                    <th>Versiyon</th>
+                    <th>Kod1</th>
+                    <th>Kayıt Tarihi</th>
+                </tr>
 
-        <?php
-        if ($resultTable->num_rows > 0) {
-            while($row = $resultTable->fetch_assoc()) {
-                echo "<tr>";
-                echo "<td>" . $row["id"] . "</td>";
-                echo "<td>" . $row["serino"] . "</td>";
-                echo "<td>" . $row["temp"] . "</td>";
-                echo "<td>" . $row["hum"] . "</td>";
-                echo "<td>" . $row["wifi"] . "</td>";
-                echo "<td>" . $row["versiyon"] . "</td>";
-                echo "<td>" . $row["oturum"] . "</td>";
-                echo "<td>" . $row["kod1dk"] . "</td>";
-                echo "<td>" . $row["kayit_tarihi"] . "</td>";
-                echo "</tr>";
+                <?php
+                if ($resultTable && $resultTable->num_rows > 0) {
+                    while($row = $resultTable->fetch_assoc()) {
+                        echo "<tr>";
+                        echo "<td>" . $row["id"] . "</td>";
+                        echo "<td>" . $row["serino"] . "</td>";
+                        echo "<td>" . $row["temp"] . "</td>";
+                        echo "<td>" . $row["hum"] . "</td>";
+                        echo "<td>%" . $row["wifi"] . "</td>";
+                        echo "<td>" . $row["versiyon"] . "</td>";
+                        echo "<td>" . $row["kod1dk"] . "</td>";
+                        echo "<td>" . $row["kayit_tarihi"] . "</td>";
+                        echo "</tr>";
+                    }
+                } else {
+                    echo "<tr><td colspan='8'>Herhangi bir veri yok!</td></tr>";
+                }
+                ?>
+            </table>
+        </div>
+
+        <script>
+            // Senin Orijinal Grafik JavaScript Kodun (Senin Tablo Yapına Uygun)
+            const data = <?php echo json_encode($data); ?>;
+            
+            // Tarih formatlama fonksiyonu (GG-AA SS:DD)
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                const day = String(date.getDate()).padStart(2, '0');  // Gün
+                const month = String(date.getMonth() + 1).padStart(2, '0');  // Ay (0-11 olduğu için +1)
+                const hours = String(date.getHours()).padStart(2, '0');  // Saat
+                const minutes = String(date.getMinutes()).padStart(2, '0');  // Dakika
+
+                return `${day}-${month} ${hours}:${minutes}`;  // GG-AA SS:DD formatı
             }
-        } else {
-            echo "<tr><td colspan='9'>Veri bulunamadı.</td></tr>";
-        }
-        ?>
-    </table>
 
-    <script>
-        const data = <?php echo json_encode($data); ?>;
+            // Tarih etiketlerini formatlayarak al
+            const labels = data.map(row => formatDate(row.kayit_tarihi));
+            const tempData = data.map(row => parseFloat(row.temp));
+            const humData = data.map(row => parseFloat(row.hum));
 
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${day}-${month} ${hours}:${minutes}`;
-        }
-
-        const labels = data.map(row => formatDate(row.kayit_tarihi));
-        const tempData = data.map(row => parseFloat(row.temp));
-        const humData = data.map(row => parseFloat(row.hum));
-
-        new Chart(document.getElementById('lineChart'), {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
                     {
                         label: 'Sıcaklık (°C)',
                         data: tempData,
                         borderColor: '#ff0000',
-                        backgroundColor: 'rgba(255,99,132,0.2)',
-                        fill: true,
-                        tension: 0.1
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderWidth: 1,
+                        fill: true
                     },
                     {
                         label: 'Nem (%)',
                         data: humData,
                         borderColor: '#0000ff',
-                        backgroundColor: 'rgba(54,162,235,0.2)',
-                        fill: true,
-                        tension: 0.1
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderWidth: 1,
+                        fill: true
                     }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        ticks: {
-                            maxRotation: 90,
-                            minRotation: 45
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'category',  // X ekseni kategori tipi olarak tanımlanıyor
+                            ticks: {
+                                maxRotation: 90,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
                         }
-                    },
-                    y: {
-                        beginAtZero: true
                     }
                 }
-            }
-        });
+            });
 
-        function filterData(filter) {
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('filter', filter);
-            window.location.search = urlParams.toString();
-        }
-    </script>
-</div>
+            function filterData(filter) {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('filter', filter);
+                window.location.search = urlParams.toString();
+            }
+        </script>
+    </div>
 </body>
 </html>
 

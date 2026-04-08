@@ -1,0 +1,9 @@
+
+# --- WP-ADMIN IP BLOCK (AUTO) ---
+<IfModule mod_authz_core.c>
+  <RequireAll>
+    Require all denied
+    Require ip 1.2.3.4
+    Require ip 5.6.7.0/24
+  </RequireAll>
+</IfModule>

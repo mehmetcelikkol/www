@@ -1,60 +1,66 @@
 <?php
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
 $servername = "localhost";
-$username = "havakont_espdht";
-$password = "0120+0120aA";
-$dbname = "havakont_espdht";
+$username   = "hava_espdht";
+$password   = "0120a0120A";
+$dbname     = "hava_espdht";
 
-// SSL Sertifikası Ayarları (Gerekirse)
-$ssl_ca = "/path/to/ca-cert.pem";
-$ssl_cert = "/path/to/client-cert.pem";
-$ssl_key = "/path/to/client-key.pem";
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    exit("Sadece POST desteklenir.");
+}
 
-// Veritabanı bağlantısı oluşturma
+$serino   = $_POST['serino']   ?? 'Bilinmiyor';
+$temp     = $_POST['temp']     ?? 0;
+$hum      = $_POST['hum']      ?? 0;
+$wifi     = $_POST['wifi']     ?? 0;
+$versiyon = $_POST['versiyon'] ?? '1.0';
+$oturum   = $_POST['oturum']   ?? 0;
+$kod1dk   = $_POST['kod1dk']   ?? 0;
+
 $conn = new mysqli($servername, $username, $password, $dbname);
 
-// SSL Ayarlarını Yapılandırma (Gerekirse)
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-else
-{
-    echo "Bağlantı ok";
+    die("Baglanti hatasi");
 }
 
-// SSL kullanarak bağlanmak için (Gerekirse)
-$conn->ssl_set($ssl_key, $ssl_cert, $ssl_ca, NULL, NULL);
+$conn->set_charset("utf8mb4");
 
-// Bağlantıyı kontrol etme
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+// IP
+$ip = ($_POST['oturum'] == 0 || $_POST['oturum'] == 1) 
+    ? $_SERVER['REMOTE_ADDR'] 
+    : '';
 
+$sql = "INSERT INTO veriler (serino, temp, hum, wifi, versiyon, oturum, kod1dk, ip, kayit_tarihi) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
+$stmt = $conn->prepare($sql);
 
+if ($stmt) {
 
-// POST metodu ile gelen verileri al
-$serino = $_POST['serino'];
-$temp = $_POST['temp'];
-$hum = $_POST['hum'];
-$wifi = $_POST['wifi'];
-$versiyon = $_POST['versiyon'];
-$oturum = $_POST['oturum'];
-$kod1dk = $_POST['kod1dk'];
-$ip = (string) $_SERVER["REMOTE_ADDR"];
+    $stmt->bind_param(
+        "sddisiss",
+        $serino,
+        $temp,
+        $hum,
+        $wifi,
+        $versiyon,
+        $oturum,
+        $kod1dk,
+        $ip
+    );
+    
+    if ($stmt->execute()) {
+        echo "OK:" . $stmt->insert_id;
+    } else {
+        echo "HATA: " . $stmt->error;
+    }
 
-
-// SQL sorgusunu hazırlama
-$sql = "INSERT INTO veriler (serino, temp, hum, wifi, versiyon, oturum, kod1dk, ip) VALUES ('$serino', $temp, $hum, $wifi, $versiyon, $oturum, $kod1dk, '$ip')";
-
-
-// Veritabanına veri ekleme
-if ($conn->query($sql) === TRUE) {
-    echo $sql;
-
+    $stmt->close();
 } else {
-    echo "Error: " . $sql . "<br>" . $conn->error;
+    echo "HATA: " . $conn->error;
 }
 
-// Bağlantıyı kapatma
 $conn->close();
 ?>

@@ -20,7 +20,7 @@ if (!$email) {
 }
 
 // Sorgu zaman aşımı süresini ayarlayalım
-// $conn->query("SET SESSION MAX_EXECUTION_TIME=90000");
+$conn->query("SET SESSION MAX_EXECUTION_TIME=30000");
 
 // E-posta adresine göre cari_id'yi almak için sorgu
 $sql = "SELECT id FROM cari WHERE mail = ?";
@@ -51,47 +51,26 @@ SELECT
 c.id, 
 c.serino, 
 c.konum,
-latest.kayit_tarihi,
-latest.temp,
-latest.hum,
-stats.min_temp,
-stats.max_temp,
-stats.avg_temp,
-stats.min_hum,
-stats.max_hum,
-stats.avg_hum
+MAX(v.kayit_tarihi) as kayit_tarihi,
+v.temp,
+v.hum,
+MIN(v.temp) as min_temp,
+MAX(v.temp) as max_temp,
+ROUND(AVG(v.temp), 1) as avg_temp,
+MIN(v.hum) as min_hum,
+MAX(v.hum) as max_hum,
+ROUND(AVG(v.hum), 1) as avg_hum
 FROM cihazlar c
-LEFT JOIN (
-    SELECT serino, temp, hum, kayit_tarihi
-    FROM veriler v1
-    WHERE kayit_tarihi = (
-        SELECT MAX(kayit_tarihi)
-        FROM veriler v2
-        WHERE v1.serino = v2.serino
-    )
-) latest ON c.serino = latest.serino
-LEFT JOIN (
-    SELECT 
-        serino,
-        MIN(temp) as min_temp,
-        MAX(temp) as max_temp,
-        ROUND(AVG(temp), 1) as avg_temp,
-        MIN(hum) as min_hum,
-        MAX(hum) as max_hum,
-        ROUND(AVG(hum), 1) as avg_hum
-    FROM veriler
-    WHERE kayit_tarihi >= CASE ? 
-        WHEN 'hour' THEN DATE_SUB(NOW(), INTERVAL 1 HOUR)
-        WHEN 'today' THEN CURDATE()
-        WHEN 'week' THEN DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
-        WHEN 'month' THEN DATE_FORMAT(NOW(), '%Y-%m-01')
-        WHEN 'year' THEN DATE_FORMAT(NOW(), '%Y-01-01')
-        ELSE '1970-01-01'
-    END
-    GROUP BY serino
-) stats ON c.serino = stats.serino
-WHERE c.firmaid = ?
-ORDER BY latest.kayit_tarihi DESC
+LEFT JOIN veriler v ON c.serino = v.serino
+WHERE c.firmaid = ? AND v.kayit_tarihi >= CASE ? 
+WHEN 'hour' THEN DATE_SUB(NOW(), INTERVAL 1 HOUR)
+WHEN 'today' THEN CURDATE()
+WHEN 'week' THEN DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+WHEN 'month' THEN DATE_FORMAT(NOW(), '%Y-%m-01')
+WHEN 'year' THEN DATE_FORMAT(NOW(), '%Y-01-01')
+ELSE '1970-01-01'
+END
+GROUP BY c.id, c.serino, c.konum
 ";
 
 $stmt = $conn->prepare($sql);
@@ -100,8 +79,7 @@ if (!$stmt) {
 	exit();
 }
 
-$stmt->bind_param("si", $timeFilter, $cari_id);
-//$stmt->bind_param("is", $cari_id, $timeFilter);
+$stmt->bind_param("is", $cari_id, $timeFilter);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -164,14 +142,12 @@ $execution_time = $end_time - $start_time;
 						<div class="pricing-header">
 							<h3 class="fw-bold mb-3"><?php echo htmlspecialchars($card['konum']); ?></h3>
 							<span class="sub-title"><strong>Kimlik: </strong><?php echo htmlspecialchars($card['serino']); ?></span>
-						
 						</div>
 						<div class="price-value">
 							<div class="value">
 								<span class="currency"><h5><sup>o</sup>C</h5></span>
 								<span class="amount"><h3><?php echo htmlspecialchars($card['temp']); ?></h3></span>
 								<span class="amount"><span><h3>% <?php echo htmlspecialchars($card['hum']); ?></h3></span></span>
-
 							</div>
 						</div>
 						<ul class="pricing-content">
@@ -223,7 +199,6 @@ $execution_time = $end_time - $start_time;
 							<li><strong>Ort. Nem:</strong> <?php echo number_format($card['avg_hum'], 1); ?> %</li>
 						</ul>
 						<a href="verioku.php?serino=<?php echo $card['serino']; ?>" class="btn btn-primary btn-border btn-lg w-75 fw-bold mb-3">Cihazı Göster</a>
-						<a href="setle.php?serino=<?php echo $card['serino']; ?>" class="btn btn-success btn-border btn-lg w-75 fw-bold mb-3">Sınırlamalar</a>
 					</div>
 				</div>
 			<?php endforeach; ?>

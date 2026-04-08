@@ -7,106 +7,78 @@ include "sidebar.php";
 include "navbar.php";
 ?>
 
-
-<style>
-    body, html {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-    }
-    .scroll-container {
-        height: calc(100vh - 60px);
-        overflow-y: auto;
-        padding: 20px;
-    }
-    .time-filter {
-        margin-bottom: 20px;
-    }
-    .col-md-3 {
-        margin-bottom: 20px;
-    }
-    .card-pricing2 {
-        margin: 0 10px;
-    }
-    .row {
-        margin: 0 -10px;
-    }
-</style>
-
 <body>
-    <div class="scroll-container">
-        <div class="container mt-5">
-            <div class="row justify-content-center">
-                <div class="col-xl-6 col-lg-7 col-md-8">
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table table-head-bg-primary mt-4">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">Sıra No</th>
-                                        <th scope="col">Kimlik</th>
-                                        <th scope="col">Konum</th>
-                                        <th scope="col">Kayıt Tarihi</th>   
-                                    </tr>
-                                </thead>
-                                <tbody>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-xl-6 col-lg-7 col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table table-head-bg-primary mt-4">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Sıra No</th>
+                                    <th scope="col">Kimlik</th>
+                                    <th scope="col">Konum</th>
+                                    <th scope="col">Kayıt Tarihi</th>   
+                                </tr>
+                            </thead>
+                            <tbody>
 
-                                    <?php
-                                    $sql = "SELECT konum, serino, kayit_tarihi FROM cihazlar WHERE firmaid = ?";
-                                    $stmt = $conn->prepare($sql);
-                                    $stmt->bind_param("i", $cari_id);
-                                    $stmt->execute();
-                                    $result = $stmt->get_result();
+                                <?php
+                                $sql = "SELECT konum, serino, kayit_tarihi FROM cihazlar WHERE firmaid = ?";
+                                $stmt = $conn->prepare($sql);
+                                $stmt->bind_param("i", $cari_id);
+                                $stmt->execute();
+                                $result = $stmt->get_result();
 
-                                    $siraNo = 1;
+                                $siraNo = 1;
 
-                                    while ($row = $result->fetch_assoc()) {
-                                        $serino = htmlspecialchars($row['serino']);
-                                        $konum = htmlspecialchars($row['konum']);
-                                        $kayit_tarihi = htmlspecialchars($row['kayit_tarihi']);
+                                while ($row = $result->fetch_assoc()) {
+                                    $serino = htmlspecialchars($row['serino']);
+                                    $konum = htmlspecialchars($row['konum']);
+                                    $kayit_tarihi = htmlspecialchars($row['kayit_tarihi']);
 
-                                        echo '<tr><td>' . $siraNo . '</td><td>' . $serino . '</td><td>' . $konum . '</td><td>' . $kayit_tarihi . '</td></tr>';
-                                        $siraNo++;
-                                    }
+                                    echo '<tr><td>' . $siraNo . '</td><td>' . $serino . '</td><td>' . $konum . '</td><td>' . $kayit_tarihi . '</td></tr>';
+                                    $siraNo++;
+                                }
 
-                                    $stmt->close();
-                                    ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                $stmt->close();
+                                ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            </div>
 
-                <div class="col-xl-6 col-lg-7 col-md-8">
-                    <div class="card">
-                        <div class="card-body">
-                            <h2 class="text-center mb-4">Yeni Cihaz Ekle</h2>
-                            <form action="" method="post" id="signupForm">
-                                <div class="form-group">
-                                    <label for="id">Kimlik</label>
-                                    <input type="text" class="form-control" id="id" name="id" placeholder="Cihazın ekranında görünen kimlik" required />
-                                </div>
+            <div class="col-xl-6 col-lg-7 col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="text-center mb-4">Yeni Cihaz Ekle</h2>
+                        <form action="" method="post" id="signupForm">
+                            <div class="form-group">
+                                <label for="id">Kimlik</label>
+                                <input type="text" class="form-control" id="id" name="id" placeholder="Cihazın ekranında görünen kimlik" required />
+                            </div>
 
-                                <div class="form-group">
-                                    <label for="konum">Konum</label>
-                                    <input type="text" class="form-control" id="konum" name="konum" placeholder="Cihaz nerede çalışacak?" required />
-                                </div>
+                            <div class="form-group">
+                                <label for="konum">Konum</label>
+                                <input type="text" class="form-control" id="konum" name="konum" placeholder="Cihaz nerede çalışacak?" required />
+                            </div>
 
-                                <div class="form-group">
-                                    <label for="kod1dk">Doğrulama Kodu</label>
-                                    <input type="text" class="form-control" id="kod1dk" name="kod1dk" placeholder="Cihaz ekranındaki doğrulama kodunu girin" required />
-                                </div>
+                            <div class="form-group">
+                                <label for="kod1dk">Doğrulama Kodu</label>
+                                <input type="text" class="form-control" id="kod1dk" name="kod1dk" placeholder="Cihaz ekranındaki doğrulama kodunu girin" required />
+                            </div>
 
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">KAYIT ET</button>
-                                </div>
-                            </form>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">KAYIT ET</button>
+                            </div>
+                        </form>
 
-                            <?php
-                            if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                                $kimlik = isset($_POST['id']) ? trim($_POST['id']) : '';
-                                $konum = isset($_POST['konum']) ? trim($_POST['konum']) : '';
+                        <?php
+                        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                            $kimlik = isset($_POST['id']) ? trim($_POST['id']) : '';
+                            $konum = isset($_POST['konum']) ? trim($_POST['konum']) : '';
                             $kod1dk = isset($_POST['kod1dk']) ? (int)trim($_POST['kod1dk']) : 0; // int'e dönüştürüyoruz
 
                             if (empty($kimlik) || empty($konum) || $kod1dk == 0) {
@@ -153,7 +125,7 @@ include "navbar.php";
                                         echo "<script>alert('Cihazınız henüz hiç internete bağlanmamış görünüyor. Önce cihazınızın WiFi ayarlarını yapıp internete çıktığından emin olunuz.');</script>";
                                     } else {
                                         // Hata ayıklama: Kodları ekrana yazdır
-                                      //buraya bir el atalım =  echo "<div class='alert alert-info mt-3'>Girilen Kod: $kod1dk, Veritabanı Kodu: $dbKod1dk</div>";
+                                        echo "<div class='alert alert-info mt-3'>Girilen Kod: $kod1dk, Veritabanı Kodu: $dbKod1dk</div>";
 
                                         if ($kod1dk === (int)$dbKod1dk) { // Burada da karşılaştırmayı int yapıyoruz
                                             // Yeni cihaz ekle
@@ -180,7 +152,6 @@ include "navbar.php";
             </div>
         </div>
     </div>
-</div>
 </body>
 
 <?php 
