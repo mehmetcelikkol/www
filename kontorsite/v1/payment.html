@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Digital Payments | Crypto Checkout</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Minimal Header -->
+    <header>
+        <div class="logo" style="cursor: pointer;" onclick="window.location.href='index.html'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            Safe Clean Hack
+        </div>
+        <div class="header-right" style="display: flex; align-items: center; gap: 16px;">
+            <a href="agreement.html?type=payment" class="header-pay-btn">💳 Pay Now</a>
+            <div class="header-trust">🔒 256-bit Secure</div>
+        </div>
+    </header>
+
+    <main>
+        <div class="hero-text">
+            <h1 style="font-size: 32px;">Crypto Payment Portal</h1>
+            <p>Scan the QR code or copy the address below to send your payment securely. Once your transaction is confirmed on the blockchain, our system will automatically detect it and initiate your requested operation.</p>
+        </div>
+        
+        <!-- Target USD Display Indicator -->
+        <div class="target-box" id="target-display">
+            Target Amount: Calculating...
+        </div>
+
+        <div class="crypto-grid" id="crypto-container">
+            <!-- Cards will be dynamically injected here -->
+        </div>
+        
+        <div class="trust-badge" style="margin-top: 40px;">
+            <span>🛡️ End-to-End Encryption Enabled. Transactions are verified on-chain.</span>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <h2 id="loading-text">Connecting to Payment Gateway...</h2>
+    </div>
+
+    <!-- Minimal Footer -->
+    <footer>
+        <p>&copy; 2026 Safe Clean Hack. All rights reserved.</p>
+    </footer>
+
+    <!-- Script for logging -->
+    <script src="script.js"></script>
+
+    <script>
+        // ==========================================
+        // EDITABLE SETTINGS / DEĞİŞTİRİLEBİLİR AYARLAR
+        // Set the base target USD price factor here. Default is 1.00 USD.
+        // Buradan temel hedef dolar tutarını (katsayıyı) değiştirebilirsiniz.
+        const TARGET_USD_MULTIPLIER = 2.00; 
+        // ==========================================
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get('type') || 'payment';
+        
+        let TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER; // Default
+        let purchaseLabel = "Secure Payment";
+        
+        if (type === 'buy_credits') {
+            TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER;
+            purchaseLabel = "Purchase Credits";
+        } else if (type === 'transfer_funds') {
+            TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER;
+            purchaseLabel = "Transfer Funds";
+        } else if (type === 'view_history') {
+            TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER;
+            purchaseLabel = "Transaction History Access";
+        } else if (type === 'contact_support') {
+            TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER;
+            purchaseLabel = "Premium Support Access";
+        } else if (type === 'payment') {
+            TARGET_USD = 1.00 * TARGET_USD_MULTIPLIER;
+            purchaseLabel = "Secure Payment";
+        }
+
+        // Update the display title/text
+        document.getElementById('target-display').innerHTML = `
+            <span>Target Amount for ${purchaseLabel}:</span>
+            <strong>$${TARGET_USD.toFixed(2)} USD</strong>
+        `;
+
+        // Crypto wallet details and APIs
+        const cryptoData = [
+            { 
+                name: "Bitcoin", 
+                symbol: "BTC",
+                id: "bitcoin", 
+                address: "bc1qv8fpemqwnpw4xsrp9etl25a4jp0jgatdu3gjzh",
+                network: "Bitcoin Network",
+                icon: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/btc.png"
+            },
+            { 
+                name: "Ethereum", 
+                symbol: "ETH",
+                id: "ethereum", 
+                address: "0xc2d88c6642a4Df4dE0A77467dF8BeE857Dc26851",
+                network: "Ethereum (ERC-20)",
+                icon: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/eth.png"
+            },
+            { 
+                name: "Solana", 
+                symbol: "SOL",
+                id: "solana", 
+                address: "AR5wZwijd3eVi5naEYbJU7zAfhUjGdDDrHarH9oiKABu",
+                network: "Solana",
+                icon: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/sol.png"
+            },
+            { 
+                name: "TRON", 
+                symbol: "TRX",
+                id: "tron", 
+                address: "TLqSVGNGMinPFNQ9mdDAiuj6Jv9BiyFm25",
+                network: "TRON (TRC-20)",
+                icon: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/trx.png"
+            },
+            { 
+                name: "BNB", 
+                symbol: "BNB",
+                id: "binancecoin", 
+                address: "0xc2d88c6642a4Df4dE0A77467dF8BeE857Dc26851",
+                network: "BNB Smart Chain (BEP-20)",
+                icon: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/bnb.png"
+            }
+        ];
+
+        function showToast(message) {
+            let toast = document.getElementById('custom-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'custom-toast';
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 30px;
+                    left: 50%;
+                    transform: translateX(-50%) translateY(20px);
+                    background: rgba(0, 255, 136, 0.95);
+                    color: #000;
+                    padding: 12px 24px;
+                    border-radius: 30px;
+                    font-weight: 700;
+                    font-size: 14px;
+                    box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+                    z-index: 10000;
+                    opacity: 0;
+                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                `;
+                document.body.appendChild(toast);
+            }
+            toast.innerText = message;
+            toast.style.transform = 'translateX(-50%) translateY(0)';
+            toast.style.opacity = '1';
+            
+            setTimeout(() => {
+                toast.style.transform = 'translateX(-50%) translateY(20px)';
+                toast.style.opacity = '0';
+            }, 2500);
+        }
+
+        async function fetchPricesAndRender() {
+            const container = document.getElementById('crypto-container');
+            container.innerHTML = '<p class="crypto-loading">Fetching current market rates, please wait...</p>';
+
+            try {
+                const ids = cryptoData.map(c => c.id).join(',');
+                const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+                const prices = await response.json();
+
+                container.innerHTML = ''; // Clear loading text
+
+                cryptoData.forEach(coin => {
+                    const coinPriceInUsd = prices[coin.id]?.usd;
+                    let amountText = "Price unavailable";
+
+                    if (coinPriceInUsd) {
+                        const requiredAmount = TARGET_USD / coinPriceInUsd;
+                        // Format with more decimals for expensive coins, 4 decimals for cheaper ones
+                        const decimals = requiredAmount < 0.1 ? 6 : 4;
+                        amountText = `${requiredAmount.toFixed(decimals)} ${coin.symbol}`;
+                    }
+
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(coin.address)}`;
+
+                    const card = document.createElement('div');
+                    card.className = 'crypto-card';
+                    card.setAttribute('data-coin', coin.id);
+                    card.innerHTML = `
+                        <div class="coin-header">
+                            <img class="coin-icon" src="${coin.icon}" alt="${coin.name}">
+                            <div class="crypto-name">${coin.name} (${coin.symbol})</div>
+                        </div>
+                        <div class="network-badge">${coin.network}</div>
+                        <div class="qr-container">
+                            <img class="qr-code" src="${qrUrl}" alt="${coin.name} QR Code">
+                        </div>
+                        <div class="address-box" title="Click to copy address" onclick="navigator.clipboard.writeText('${coin.address}'); showToast('Wallet address copied to clipboard!');">
+                            <span>${coin.address.substring(0, 10)}...${coin.address.substring(coin.address.length - 8)}</span>
+                            <span class="copy-icon">📋 Copy</span>
+                        </div>
+                        <div class="amount-box">
+                            Amount: ${amountText}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error("Error fetching crypto prices:", error);
+                container.innerHTML = '<p class="crypto-loading" style="color: #ff3366;">Failed to load exchange rates. Please refresh the page.</p>';
+            }
+        }
+
+        // Initialize rates fetch and rendering
+        fetchPricesAndRender();
+    </script>
+</body>
+</html>

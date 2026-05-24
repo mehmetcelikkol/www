@@ -1,0 +1,5 @@
+# Video MIME türlerini tanımlama
+AddType video/mp4 .mp4
+AddType video/webm .webm
+AddType video/ogg .ogg
+AddType video/quicktime .mov

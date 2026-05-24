@@ -1,0 +1,3 @@
+{"timestamp":"2025-10-13 11:12:37","ip":"127.0.0.1","action":"callback_request_submitted","callback_id":"callback_68ecdea5d61a34.09490657","name":"sad sad","subject":"SCADA Sistemleri"}
+{"timestamp":"2025-10-13 11:43:49","ip":"127.0.0.1","action":"callback_request_submitted","callback_id":"callback_68ece5f50b97b8.69132019","name":"sad sad","subject":"Safety PLC"}
+{"timestamp":"2025-10-13 12:22:43","ip":"127.0.0.1","action":"callback_request_submitted","callback_id":"callback_68ecef138ccbd2.48879417","name":"dsd","subject":"HMI Tasar\u0131m\u0131"}

@@ -1,0 +1,35 @@
+[
+    {
+        "id": "callback_68ecdea5d61a34.09490657",
+        "timestamp": "2025-10-13 11:12:37",
+        "ip": "127.0.0.1",
+        "name": "sad sad",
+        "phone": "5426014167",
+        "subject": "SCADA Sistemleri",
+        "message": "saf sdfa sd",
+        "user_agent": "",
+        "status": "new"
+    },
+    {
+        "id": "callback_68ece5f50b97b8.69132019",
+        "timestamp": "2025-10-13 11:43:49",
+        "ip": "127.0.0.1",
+        "name": "sad sad",
+        "phone": "5426014167",
+        "subject": "Safety PLC",
+        "message": "s",
+        "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko\/20100101 Firefox\/143.0",
+        "status": "new"
+    },
+    {
+        "id": "callback_68ecef138ccbd2.48879417",
+        "timestamp": "2025-10-13 12:22:43",
+        "ip": "127.0.0.1",
+        "name": "dsd",
+        "phone": "(542) 601 41 67",
+        "subject": "HMI Tasarımı",
+        "message": "s ss",
+        "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko\/20100101 Firefox\/143.0",
+        "status": "new"
+    }
+]

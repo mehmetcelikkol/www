@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<style>
+		body {
+			background-color: #83a2b8;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			margin: 0;
+		}
+		@keyframes glow {
+			0% {
+				box-shadow: 0 0 5px rgba(255, 255, 255, 0);
+			}
+			50% {
+				box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+			}
+			100% {
+				box-shadow: 0 0 5px rgba(255, 255, 255, 0);
+			}
+		}
+		.container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+		img {
+			display: block;
+			width: 300px; /* Görselin boyutunu ayarlayın */
+			animation: glow 2s ease-in-out infinite;
+		}
+		h2 {
+			color: white;
+		}
+		a {
+			/* color: blue; */
+			text-decoration: none; /* İsteğe bağlı: linkin altını kaldırır */
+		}
+		a:hover {
+			text-decoration: underline; /* İsteğe bağlı: fareyle üzerine gelindiğinde altını çizer */
+		}
+	</style>
+
+	<title>Emanet - Depozito Takip Sistemi</title>
+</head>
+<body>
+	<div class="container">
+		<img src="logo.png" class="center">
+		<h2>Detaylar için <a href="https://www.rmtproje.com">RMT Proje</a></h2>
+	</div>
+</body>
+</html>

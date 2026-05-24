@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Digital Payments | Agreement & Form</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Minimal Header -->
+    <header>
+        <div class="logo" style="cursor: pointer;" onclick="window.location.href='index.html'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Safe Clean Hack
+        </div>
+        <div class="header-right" style="display: flex; align-items: center; gap: 16px;">
+            <a href="agreement.html?type=payment" class="header-pay-btn">💳 Pay Now</a>
+            <div class="header-trust">🔒 256-bit Secure</div>
+        </div>
+    </header>
+
+    <main class="agreement-main">
+        <div class="form-container glass-panel">
+            <h1 id="agreement-title" style="margin-bottom: 20px; font-size: 28px; text-align: center;">Service Agreement
+            </h1>
+
+            <form id="details-form">
+                <input type="hidden" id="action_type" name="action_type" value="">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="first_name">First Name *</label>
+                        <input type="text" id="first_name" name="first_name" required
+                            placeholder="Enter your first name">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name *</label>
+                        <input type="text" id="last_name" name="last_name" required placeholder="Enter your last name">
+                    </div>
+                    <div class="form-group">
+                        <label for="country">Country *</label>
+                        <input type="text" id="country" name="country" required placeholder="Your Country">
+                    </div>
+                    <div class="form-group">
+                        <label for="city">City</label>
+                        <input type="text" id="city" name="city" placeholder="Your City (Optional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" placeholder="Your Phone (Optional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="Your Email (Optional)">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="instagram">Instagram / Social Media</label>
+                        <input type="text" id="instagram" name="instagram" placeholder="@username (Optional)">
+                    </div>
+                </div>
+
+                <div class="contract-box">
+                    <h3 id="contract-heading">Service Sales Agreement</h3>
+                    <div class="contract-text" id="contract-text">
+                        <p>Loading agreement terms...</p>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="agree_terms" name="agree_terms" required>
+                    <label for="agree_terms">I have read and understood the agreement.</label>
+                </div>
+
+                <button type="submit" id="submit-btn" class="cta-button" disabled>Proceed to Payment</button>
+            </form>
+        </div>
+    </main>
+
+    <!-- Minimal Footer -->
+    <footer>
+        <p>&copy; 2026 SecurePay Inc. All rights reserved.</p>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <h2 id="loading-text">Processing your request...</h2>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Specific logic for agreement page
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const type = urlParams.get('type') || 'unknown';
+            document.getElementById('action_type').value = type;
+
+            const contractHeading = document.getElementById('contract-heading');
+            const contractText = document.getElementById('contract-text');
+            const title = document.getElementById('agreement-title');
+
+            // Set contract text based on type
+            if (type === 'buy_credits') {
+                title.innerText = 'Purchase Credits';
+                contractHeading.innerText = 'Service Sales Agreement';
+                contractText.innerHTML = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p><p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>';
+            } else if (type === 'transfer_funds') {
+                title.innerText = 'Transfer Funds';
+                contractHeading.innerText = 'Service Sales Agreement';
+                contractText.innerHTML = '<p>This contract covers fund transfer operations. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin nec mi ut nisl eleifend lacinia.</p>';
+            } else if (type === 'view_history') {
+                title.innerText = 'Transaction History';
+                contractHeading.innerText = 'Service Sales Agreement';
+                contractText.innerHTML = '<p>This is the approval text for viewing past transactions. Lorem ipsum dolor sit amet.</p>';
+            } else if (type === 'payment') {
+                title.innerText = 'Secure Payment Gateway';
+                contractHeading.innerText = 'Payment Terms & Conditions';
+                contractText.innerHTML = '<p>By proceeding with this payment, you agree to our terms of service and acknowledge that digital transactions are final and non-refundable. Please verify all wallet addresses before sending funds.</p>';
+            } else {
+                title.innerText = 'Support Request';
+                contractHeading.innerText = 'Service Sales Agreement';
+                contractText.innerHTML = '<p>Terms for creating a support request. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>';
+            }
+
+            // Enable submit button only if checkbox is checked
+            const agreeCheckbox = document.getElementById('agree_terms');
+            const submitBtn = document.getElementById('submit-btn');
+
+            agreeCheckbox.addEventListener('change', () => {
+                submitBtn.disabled = !agreeCheckbox.checked;
+            });
+
+            // Handle form submission
+            const form = document.getElementById('details-form');
+            const loadingOverlay = document.getElementById('loading-overlay');
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                loadingOverlay.style.display = 'flex';
+
+                const formData = new FormData(form);
+                const dataObj = Object.fromEntries(formData.entries());
+
+                fetch('submit_form.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataObj)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Redirect to payment
+                            window.location.href = `payment.html?type=${type}`;
+                        } else {
+                            alert('Error submitting form: ' + data.message);
+                            loadingOverlay.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        loadingOverlay.style.display = 'none';
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>
